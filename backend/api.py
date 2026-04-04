@@ -48,6 +48,7 @@ from pydub.generators import Sine
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "backend_data"
 JOBS_DIR = DATA_DIR / "jobs"
+PROFANITY_CSV_DIR = DATA_DIR / "profanity_csv"
 VBW_CACHE_PATH = DATA_DIR / "vbw_classify.csv"
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "base")
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
@@ -139,6 +140,32 @@ def ensure_profanity_cache() -> Path:
     return VBW_CACHE_PATH
 
 
+def load_profanity_map_from_directory(directory_path: Path) -> dict[str, str]:
+    profanity_map: dict[str, str] = {}
+
+    if not directory_path.exists():
+        return profanity_map
+
+    for csv_path in sorted(directory_path.glob("*.csv")):
+        language = csv_path.stem.replace("_", " ").strip()
+        if not language:
+            continue
+
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.reader(handle)
+            for row in reader:
+                if not row:
+                    continue
+
+                word = str(row[0]).strip().lower()
+                if not word or word == "word":
+                    continue
+
+                profanity_map[word] = language
+
+    return profanity_map
+
+
 def load_profanity_map() -> dict[str, str]:
     global PROFANITY_MAP
     if PROFANITY_MAP is not None:
@@ -148,21 +175,34 @@ def load_profanity_map() -> dict[str, str]:
         if PROFANITY_MAP is not None:
             return PROFANITY_MAP
 
-        profanity_map: dict[str, str] = {}
-        cache_path = ensure_profanity_cache()
-        with cache_path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.reader(handle)
-            for row in reader:
-                if not row:
-                    continue
-                word = str(row[0]).strip().lower()
-                if not word or word == "word":
-                    continue
-                language = str(row[1]).strip() if len(row) > 1 and row[1] else ""
-                profanity_map[word] = language
+        profanity_map = load_profanity_map_from_directory(PROFANITY_CSV_DIR)
 
         if not profanity_map:
-            profanity_map = dict(FALLBACK_PROFANITY_MAP)
+            profanity_map = {}
+            cache_path = ensure_profanity_cache()
+            with cache_path.open("r", encoding="utf-8", newline="") as handle:
+                reader = csv.reader(handle)
+                saw_language_column = False
+                for row in reader:
+                    if not row:
+                        continue
+                    word = str(row[0]).strip().lower()
+                    if not word or word == "word":
+                        continue
+                    if len(row) > 1 and row[1]:
+                        saw_language_column = True
+                        language = str(row[1]).strip()
+                    else:
+                        language = "VBW"
+                    profanity_map[word] = language
+
+            if not profanity_map:
+                profanity_map = dict(FALLBACK_PROFANITY_MAP)
+            elif not saw_language_column:
+                profanity_map = {
+                    word: (language or "VBW")
+                    for word, language in profanity_map.items()
+                }
 
         PROFANITY_MAP = profanity_map
         return PROFANITY_MAP
@@ -220,6 +260,29 @@ def classify_profanity(words: list[dict[str, Any]], profanity_map: dict[str, str
             }
         )
     return classified
+
+
+def refresh_safety_report_languages(
+    safety_report: list[dict[str, Any]],
+    profanity_map: dict[str, str],
+) -> list[dict[str, Any]]:
+    refreshed_report: list[dict[str, Any]] = []
+
+    for item in safety_report:
+        refreshed_item = dict(item)
+        if refreshed_item.get("is_profane"):
+            matched_profanity = str(
+                refreshed_item.get("matched_profanity")
+                or refreshed_item.get("word", "")
+            ).strip(PUNCTUATION_TO_STRIP).lower()
+            refreshed_language = profanity_map.get(matched_profanity, "")
+            if refreshed_language:
+                refreshed_item["matched_profanity"] = matched_profanity
+                refreshed_item["matched_profanity_language"] = refreshed_language
+
+        refreshed_report.append(refreshed_item)
+
+    return refreshed_report
 
 
 def profane_intervals(classified_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -385,6 +448,20 @@ async def start_processing(
 @app.get("/api/jobs/{job_id}")
 def read_job(job_id: str) -> dict[str, Any]:
     job = get_job(job_id)
+    if job.result and job.result.get("safety_report"):
+        refreshed_report = refresh_safety_report_languages(
+            job.result["safety_report"],
+            load_profanity_map(),
+        )
+        update_job(
+            job_id,
+            result={
+                **job.result,
+                "safety_report": refreshed_report,
+            },
+        )
+        job = get_job(job_id)
+
     return {
         "job_id": job.job_id,
         "status": job.status,
