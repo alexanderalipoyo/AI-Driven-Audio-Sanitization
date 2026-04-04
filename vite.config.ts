@@ -6,6 +6,9 @@
 
   export default defineConfig({
     plugins: [react(), tailwindcss()],
+    optimizeDeps: {
+      exclude: ['sonner'],
+    },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {

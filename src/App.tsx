@@ -275,7 +275,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="border-b border-slate-800 bg-slate-950/50 backdrop-blur-sm">
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -320,7 +320,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto flex-1 px-6 py-8">
         {activePage === "workspace" ? (
           <Tabs defaultValue="convert" className="space-y-6">
             <TabsList className="hidden border border-slate-800 bg-slate-900/50">
@@ -395,6 +395,20 @@ export default function App() {
           <SupportedLanguagesPage />
         )}
       </div>
+
+      <footer className="border-t border-slate-800/80 bg-slate-950/40">
+        <div className="container mx-auto px-6 py-4 text-center text-sm text-slate-500">
+          © 2026 MITS 001 (Machine Learning) - {" "}
+          <a
+            href="https://github.com/alexanderalipoyo"
+            target="_blank"
+            rel="noreferrer"
+            className="text-slate-300 underline decoration-slate-600 underline-offset-4 transition-colors hover:text-cyan-300"
+          >
+            Alex Ali
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

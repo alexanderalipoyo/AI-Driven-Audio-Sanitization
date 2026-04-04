@@ -1,9 +1,49 @@
-import { useCallback, useState } from "react";
+import { type ChangeEvent, type DragEvent, useCallback, useState } from "react";
 import { Card } from "./ui/card";
-import { Upload, File, X } from "lucide-react";
+import { Upload } from "lucide-react";
+import { toast } from "sonner";
 
 interface FileUploadZoneProps {
   onFilesAdded: (files: File[]) => void;
+}
+
+const SUPPORTED_EXTENSIONS = [
+  ".mp4",
+  ".avi",
+  ".mov",
+  ".mkv",
+  ".mp3",
+  ".wav",
+  ".flac",
+  ".m4a",
+  ".ogg",
+  ".opus",
+  ".aac",
+  ".wma",
+];
+
+function isSupportedMediaFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return (
+    file.type.startsWith("audio/") ||
+    file.type.startsWith("video/") ||
+    SUPPORTED_EXTENSIONS.some((ext) => lowerName.endsWith(ext))
+  );
+}
+
+function partitionFiles(files: File[]) {
+  const supportedFiles: File[] = [];
+  const unsupportedFiles: File[] = [];
+
+  files.forEach((file) => {
+    if (isSupportedMediaFile(file)) {
+      supportedFiles.push(file);
+      return;
+    }
+    unsupportedFiles.push(file);
+  });
+
+  return { supportedFiles, unsupportedFiles };
 }
 
 export function FileUploadZone({
@@ -11,57 +51,54 @@ export function FileUploadZone({
 }: FileUploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
+  const handleValidatedFiles = useCallback(
+    (files: File[]) => {
+      const { supportedFiles, unsupportedFiles } = partitionFiles(files);
 
-      const droppedFiles = Array.from(
-        e.dataTransfer.files,
-      ).filter(
-        (file) =>
-          file.type.startsWith("audio/") ||
-          file.type.startsWith("video/") ||
-          [
-            ".mp3",
-            ".wav",
-            ".flac",
-            ".m4a",
-            ".ogg",
-            ".opus",
-            ".aac",
-            ".wma",
-          ].some((ext) =>
-            file.name.toLowerCase().endsWith(ext),
-          ),
-      );
+      if (unsupportedFiles.length > 0) {
+        const rejectedNames = unsupportedFiles.map((file) => file.name).join(", ");
+        toast.error("Unsupported file format", {
+          description: `These files were skipped: ${rejectedNames}`,
+        });
+      }
 
-      if (droppedFiles.length > 0) {
-        onFilesAdded(droppedFiles);
+      if (supportedFiles.length > 0) {
+        onFilesAdded(supportedFiles);
       }
     },
     [onFilesAdded],
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      handleValidatedFiles(droppedFiles);
+    },
+    [handleValidatedFiles],
+  );
+
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
   }, []);
 
   const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = Array.from(e.target.files || []);
       if (selectedFiles.length > 0) {
-        onFilesAdded(selectedFiles);
+        handleValidatedFiles(selectedFiles);
       }
       e.target.value = "";
     },
-    [onFilesAdded],
+    [handleValidatedFiles],
   );
 
   return (
@@ -117,7 +154,7 @@ export function FileUploadZone({
             </label>
 
             <p className="text-slate-600 text-xs">
-              Supports: mp4 ,avi ,mov ,mkv
+              Supports: mp4, avi, mov, mkv, mp3, wav, flac, m4a, ogg, opus, aac, wma
             </p>
           </div>
         </div>
