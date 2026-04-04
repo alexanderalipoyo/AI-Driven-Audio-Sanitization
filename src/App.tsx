@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { SupportedLanguagesPage } from "./components/SupportedLanguagesPage";
-import { fetchJobStatus, resolveApiAssetUrl, startProcessingJob, startProcessingUrlJob } from "./lib/api";
+import { deleteJob, fetchJobStatus, resolveApiAssetUrl, startProcessingJob, startProcessingUrlJob } from "./lib/api";
 
 export interface AudioFile {
   id: string;
@@ -258,16 +258,37 @@ export default function App() {
     });
   };
 
-  const handleClearCompleted = () => {
+  const handleClearCompleted = async () => {
+    const completedFiles = files.filter((file) => file.status === "completed");
+    const completedServerJobs = completedFiles.filter((file) => file.serverJobId);
+
+    const deletionResults = await Promise.allSettled(
+      completedServerJobs.map((file) => deleteJob(file.serverJobId as string)),
+    );
+
+    const failedJobIds = new Set(
+      deletionResults.flatMap((result, index) =>
+        result.status === "rejected"
+          ? [completedServerJobs[index].serverJobId as string]
+          : [],
+      ),
+    );
+
     setFiles((prev) => {
       prev
-        .filter((file) => file.status === "completed" && file.previewUrl?.startsWith("blob:"))
+        .filter(
+          (file) => file.status === "completed"
+            && !failedJobIds.has(file.serverJobId || "")
+            && file.previewUrl?.startsWith("blob:"),
+        )
         .forEach((file) => {
           if (file.previewUrl) {
             URL.revokeObjectURL(file.previewUrl);
           }
         });
-      return prev.filter((file) => file.status !== "completed");
+      return prev.filter(
+        (file) => file.status !== "completed" || failedJobIds.has(file.serverJobId || ""),
+      );
     });
   };
 

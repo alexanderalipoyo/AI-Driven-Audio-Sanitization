@@ -29,6 +29,28 @@ export function ProcessingQueue({
   const hasPendingFiles = files.some(f => f.status === 'pending');
   const hasCompletedFiles = files.some(f => f.status === 'completed');
   const isProcessing = files.some(f => f.status === 'processing');
+  const sortedFiles = files
+    .map((file, index) => ({ file, index }))
+    .sort((left, right) => {
+      const statusPriority: Record<AudioFile['status'], number> = {
+        processing: 0,
+        pending: 1,
+        error: 2,
+        completed: 3,
+      };
+
+      const priorityDifference = statusPriority[left.file.status] - statusPriority[right.file.status];
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      if (left.file.status === 'processing') {
+        return right.index - left.index;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ file }) => file);
 
   const getSectionKey = (fileId: string, sectionId: string) => `${fileId}:${sectionId}`;
 
@@ -122,7 +144,7 @@ export function ProcessingQueue({
         </div>
 
         <div className="space-y-3">
-          {files.map((file) => (
+          {sortedFiles.map((file) => (
             <div
               key={file.id}
               className="rounded-lg bg-slate-950/50 border border-slate-800 overflow-hidden"

@@ -156,6 +156,17 @@ export async function fetchJobStatus(jobId: string) {
   return response.json() as Promise<ProcessingJobStatus>;
 }
 
+export async function deleteJob(jobId: string) {
+  const response = await fetch(toApiUrl(`/api/jobs/${jobId}`), {
+    method: "DELETE",
+  });
+
+  if (!response.ok && response.status !== 404) {
+    const detail = await response.text();
+    throw new Error(detail || "Failed to delete job");
+  }
+}
+
 export async function fetchSupportedLanguages() {
   const response = await fetch(toApiUrl("/api/supported-languages"));
   if (!response.ok) {

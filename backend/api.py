@@ -151,6 +151,25 @@ def update_job(job_id: str, **changes: Any) -> None:
             setattr(job, key, value)
 
 
+def delete_job_files(job_id: str) -> None:
+    job_dir = JOBS_DIR / job_id
+    if job_dir.exists():
+        shutil.rmtree(job_dir, ignore_errors=True)
+
+
+def delete_job(job_id: str) -> None:
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+
+    if job and job.status in {"queued", "processing"}:
+        raise HTTPException(status_code=409, detail="Cannot delete a job that is still running")
+
+    delete_job_files(job_id)
+
+    with JOBS_LOCK:
+        JOBS.pop(job_id, None)
+
+
 def validate_processing_options(output_format: str, censor_type: str) -> None:
     if output_format not in {"mp4", "avi", "mov", "mkv"}:
         raise HTTPException(status_code=400, detail="Unsupported output format")
@@ -937,3 +956,8 @@ def preview_output(job_id: str) -> FileResponse:
         media_type=job.result.get("preview_mime_type") or job.result["output_mime_type"],
         filename=preview_path.name,
     )
+
+
+@app.delete("/api/jobs/{job_id}", status_code=204)
+def remove_job(job_id: str) -> None:
+    delete_job(job_id)
