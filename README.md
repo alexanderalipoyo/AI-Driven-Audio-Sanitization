@@ -1,24 +1,30 @@
 
 # AI-Driven Video Sanitization
 
-AI-Driven Video Sanitization is a Vite + React frontend with a FastAPI backend for detecting profane words in audio or video, generating word-level timestamps with OpenAI Whisper, and producing a sanitized output file with censored audio.
+AI-Driven Video Sanitization is a Vite + React frontend with a FastAPI backend for detecting profane words in audio or video, generating word-level timestamps with Whisper, and exporting sanitized media with censored audio.
 
-## What it does
+It supports both local file uploads and remote media import through supported URLs.
+
+## Features
 
 - Upload local audio or video files for processing
-- Transcribe media with Whisper using word timestamps
-- Match profane words against the local multilingual profanity CSV library
-- Generate a word safety report and profanity analytics dashboard
-- Preview uncensored and censored media in the UI
-- Download the sanitized output in the selected output format
-- Browse supported profanity languages directly from the app
+- Import media from supported URLs with `yt-dlp`
+- Transcribe speech with Whisper and word-level timestamps
+- Match detected words against multilingual profanity CSV dictionaries
+- Generate a word safety report and profanity analytics
+- Preview both original and sanitized media in the app
+- Export sanitized video or audio-only output
+- Choose built-in censor behaviors such as `beep`, `silence`, or `faaa`
+- Browse supported profanity dictionaries from the UI
+- Clear completed jobs from both the queue and backend storage
 
 ## Tech stack
 
 - Frontend: Vite, React, TypeScript, Tailwind CSS, Radix UI
 - Backend: FastAPI, Uvicorn
-- Speech recognition: OpenAI Whisper
-- Media processing: FFmpeg, pydub, MoviePy
+- Speech recognition: Whisper
+- Media processing: FFmpeg, pydub
+- Remote downloads: yt-dlp
 
 ## Project structure
 
@@ -26,22 +32,25 @@ AI-Driven Video Sanitization is a Vite + React frontend with a FastAPI backend f
 src/                         Frontend application
 backend/api.py               FastAPI backend and processing pipeline
 backend_data/profanity_csv/  Multilingual profanity dictionaries
-backend_data/censor_sounds/  Custom censor sounds
-backend_data/jobs/           Generated processing outputs
+backend_data/censor_sounds/  Custom censor sound assets
+backend_data/jobs/           Per-job working directories and generated outputs
 requirements.txt             Python dependencies
 package.json                 Frontend scripts and JS dependencies
 ```
 
-## Prerequisites
+## Requirements
 
-Before running the app, make sure these are available:
+Install these before running the app:
 
 - Node.js and npm
-- Python 3.11 or a compatible local Python environment
+- Python 3.11 or a compatible Python version
 - FFmpeg available on `PATH`
-- Optional: ImageMagick for MoviePy-related text rendering workflows
 
-## Installation
+Optional:
+
+- A GPU-enabled PyTorch setup if you want faster Whisper inference
+
+## Setup
 
 ### 1. Install frontend dependencies
 
@@ -49,7 +58,7 @@ Before running the app, make sure these are available:
 npm install
 ```
 
-### 2. Create and activate a Python environment
+### 2. Create a Python virtual environment
 
 Windows PowerShell:
 
@@ -64,27 +73,22 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Installed Python packages include:
+Key Python packages used by this project include:
 
 - `openai-whisper`
 - `pydub`
 - `torch`
 - `torchaudio`
-- `pandas`
-- `fuzzywuzzy`
-- `python-Levenshtein`
-- `moviepy`
-- `matplotlib`
-- `seaborn`
 - `fastapi`
 - `uvicorn`
 - `python-multipart`
+- `yt-dlp`
 
-## Running the app
+## Running locally
 
-You need two terminals.
+Use two terminals.
 
-### Terminal 1: Start the backend API
+### Terminal 1: start the backend
 
 ```bash
 npm run api
@@ -92,29 +96,70 @@ npm run api
 
 This starts the FastAPI server at `http://127.0.0.1:8000`.
 
-Note: the `api` script uses `.venv\Scripts\python.exe`. If `.venv` does not exist yet, create it first.
+The `api` script uses `.venv\Scripts\python.exe`, so `.venv` must exist first.
 
-### Terminal 2: Start the frontend
+### Terminal 2: start the frontend
 
 ```bash
 npm run dev
 ```
 
-Vite serves the frontend and proxies `/api/*` requests to the backend automatically.
+The Vite dev server proxies `/api/*` requests to `http://127.0.0.1:8000`.
 
-## Supported media formats
+## Supported workflows
 
-Input media:
+### Upload local media
 
-- Video: `mp4`, `avi`, `mov`, `mkv`
+Use the `Upload Media Files` tab to queue local audio or video files, configure output settings, and run sanitization.
+
+### Import media via URL
+
+Use the `Upload via Url` tab to queue supported remote media links. The app uses `yt-dlp` to download the source before processing it.
+
+Typical supported sources include:
+
+- YouTube
+- Facebook
+- Vimeo
+- SoundCloud
+- TikTok
+- X (Twitter)
+- Bandcamp
+- Other sites supported by `yt-dlp`
+
+## Media formats
+
+### Accepted input formats
+
+- Video: `mp4`, `mov`, `avi`, `mkv`, `webm`
 - Audio: `mp3`, `wav`, `flac`, `m4a`, `ogg`, `opus`, `aac`, `wma`
 
-Output video formats:
+### Video output formats
 
 - `mp4`
 - `avi`
 - `mov`
 - `mkv`
+
+### Audio-only output formats
+
+- `mp3`
+- `wav`
+- `flac`
+- `ogg`
+- `aac`
+- `m4a`
+
+## Output settings
+
+The UI currently supports:
+
+- Video output format
+- Censor type
+- Audio-only export toggle
+- Audio format selection when audio-only is enabled
+
+For some URL sources such as YouTube and TikTok, the app keeps video downloads enabled so previews remain available.
 
 ## Censor types
 
@@ -124,7 +169,7 @@ Built-in censor types:
 - `silence`
 - `faaa`
 
-For the `faaa` censor type to work, place this file in the project:
+For `faaa`, the backend expects this file:
 
 ```text
 backend_data/censor_sounds/faaa.mp3
@@ -132,51 +177,80 @@ backend_data/censor_sounds/faaa.mp3
 
 ## Profanity dictionaries
 
-The backend reads profanity dictionaries from:
+The backend loads profanity dictionaries from:
 
 ```text
 backend_data/profanity_csv/
 ```
 
-Each CSV file is treated as one supported language. The filename becomes the language label shown in the UI.
+Each CSV file is treated as a supported language, and the filename becomes the language label shown in the app.
 
-If the folder is missing or empty, the backend falls back to `backend_data/vbw_classify.csv`.
+If the profanity CSV directory is missing or empty, the backend falls back to:
 
-## End-to-end workflow
+```text
+backend_data/vbw_classify.csv
+```
+
+## Processing flow
 
 1. Start the backend with `npm run api`.
 2. Start the frontend with `npm run dev`.
-3. Upload a local audio or video file.
-4. Choose an output format and censor type.
-5. Start processing.
-6. Review the generated safety report, previews, timestamps, and analytics.
-7. Download the sanitized output.
+3. Add a local file or supported URL.
+4. Choose output settings.
+5. Start processing or wait for queued URL jobs to run.
+6. Review the safety report, analytics, and original/sanitized previews.
+7. Download the sanitized result.
+8. Clear completed items when you want to reclaim disk space in `backend_data/jobs/`.
 
 ## API overview
 
 Main backend endpoints:
 
 - `GET /api/health` - health check
-- `POST /api/process` - upload and start a processing job
+- `GET /api/supported-languages` - list supported profanity CSV files
+- `GET /api/supported-languages/{csv_filename}` - read entries from one profanity CSV
+- `GET /api/censor-sounds/{sound_name}` - serve custom censor sounds
+- `POST /api/process` - upload local media and start a processing job
+- `POST /api/process-url` - start a URL-based processing job
 - `GET /api/jobs/{job_id}` - poll processing status and result metadata
-- `GET /api/jobs/{job_id}/download` - download sanitized output
-- `GET /api/jobs/{job_id}/preview` - preview sanitized media when applicable
-- `GET /api/supported-languages` - list supported languages from CSV files
-- `GET /api/supported-languages/{csv_filename}` - read entries from a specific CSV
-- `GET /api/censor-sounds/{sound_name}` - serve custom censor audio assets
+- `GET /api/jobs/{job_id}/download` - download the sanitized output
+- `GET /api/jobs/{job_id}/original` - fetch the original uploaded or downloaded source media
+- `GET /api/jobs/{job_id}/preview` - fetch a sanitized preview asset
+- `DELETE /api/jobs/{job_id}` - delete a completed job and its job directory
 
-## Notes
+## Troubleshooting
 
-- Whisper model loading can take time on first run.
-- GPU acceleration depends on your installed PyTorch build and local CUDA support.
-- Existing processed jobs are stored under `backend_data/jobs/`.
-- Unsupported files are rejected in the upload UI and shown as a notification.
+### `npm run api` fails immediately
 
-## Suggested check
+Check these first:
+
+- `.venv` exists and dependencies were installed with `pip install -r requirements.txt`
+- FFmpeg is installed and accessible on `PATH`
+- The Python interpreter at `.venv\Scripts\python.exe` is valid
+
+### URL import fails with an invalid URL error
+
+Use a full URL starting with `http://` or `https://`.
+
+Example:
+
+```text
+https://www.youtube.com/watch?v=...
+```
+
+### First run is slow
+
+Whisper model loading can take time the first time the backend starts processing.
+
+### Completed jobs are taking disk space
+
+Use `Clear Completed` in the queue. Completed job directories are deleted from `backend_data/jobs/` when cleared.
+
+## Validation
+
+To validate the frontend bundle:
 
 ```bash
 npm run build
 ```
-
-Use that to validate the frontend bundle after changes.
   
