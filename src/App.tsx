@@ -21,6 +21,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { fetchJobStatus, resolveApiAssetUrl, startProcessingJob } from "./lib/api";
 
 export interface AudioFile {
   id: string;
@@ -31,6 +32,12 @@ export interface AudioFile {
   progress: number;
   file?: File;
   url?: string;
+  previewUrl?: string;
+  outputUrl?: string;
+  outputMimeType?: string;
+  outputFilename?: string;
+  errorMessage?: string;
+  serverJobId?: string;
   transcription?: {
     segments: Array<{
       words: Array<{
@@ -82,9 +89,10 @@ export default function App() {
         status: "pending",
         progress: 0,
         file,
+        previewUrl: URL.createObjectURL(file),
       }),
     );
-    setFiles([...files, ...audioFiles]);
+    setFiles((prev) => [...prev, ...audioFiles]);
   };
 
   const handleUrlAdded = (url: string, filename: string) => {
@@ -93,181 +101,139 @@ export default function App() {
       name: filename,
       size: 0,
       type: "audio/unknown",
-      status: "pending",
-      progress: 0,
+      status: "error",
+      progress: 100,
       url,
+      errorMessage: "URL downloads are not wired to the processing API yet.",
     };
-    setFiles([...files, audioFile]);
+    setFiles((prev) => [...prev, audioFile]);
   };
 
-  const handleStartProcessing = () => {
-    // Simulate processing
-    files.forEach((file, index) => {
-      if (file.status === "pending") {
-        setTimeout(() => {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.id === file.id
-                ? { ...f, status: "processing" }
-                : f,
-            ),
-          );
+  const updateFile = (id: string, changes: Partial<AudioFile>) => {
+    setFiles((prev) =>
+      prev.map((file) =>
+        file.id === id ? { ...file, ...changes } : file,
+      ),
+    );
+  };
 
-          // Simulate progress
-          let progress = 0;
-          const interval = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress >= 100) {
-              progress = 100;
-              clearInterval(interval);
-              
-              // Generate sample transcription data when completed
-              const sampleTranscription = {
-                segments: [
-                  {
-                    words: [
-                      { start: 0.00, end: 0.34, word: " Stop" },
-                      { start: 0.34, end: 0.68, word: " the" },
-                      { start: 0.68, end: 0.98, word: " damn" },
-                      { start: 0.98, end: 1.60, word: " swearing." },
-                      { start: 1.60, end: 2.10, word: " This" },
-                      { start: 2.10, end: 2.34, word: " shit" },
-                      { start: 2.34, end: 2.56, word: " is" },
-                      { start: 2.56, end: 3.02, word: " terrible." },
-                      { start: 3.02, end: 3.45, word: " Hell" },
-                      { start: 3.45, end: 3.68, word: " no!" },
-                    ]
-                  }
-                ]
-              };
-              
-              // Generate sample safety report with some profane words
-              const sampleSafetyReport = [
-                {
-                  word: "Stop",
-                  start: 0.00,
-                  end: 0.34,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "the",
-                  start: 0.34,
-                  end: 0.68,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "damn",
-                  start: 0.68,
-                  end: 0.98,
-                  is_profane: true,
-                  matched_profanity: "damn",
-                  matched_profanity_language: "en",
-                },
-                {
-                  word: "swearing.",
-                  start: 0.98,
-                  end: 1.60,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "This",
-                  start: 1.60,
-                  end: 2.10,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "shit",
-                  start: 2.10,
-                  end: 2.34,
-                  is_profane: true,
-                  matched_profanity: "shit",
-                  matched_profanity_language: "en",
-                },
-                {
-                  word: "is",
-                  start: 2.34,
-                  end: 2.56,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "terrible.",
-                  start: 2.56,
-                  end: 3.02,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-                {
-                  word: "Hell",
-                  start: 3.02,
-                  end: 3.45,
-                  is_profane: true,
-                  matched_profanity: "hell",
-                  matched_profanity_language: "en",
-                },
-                {
-                  word: "no!",
-                  start: 3.45,
-                  end: 3.68,
-                  is_profane: false,
-                  matched_profanity: null,
-                  matched_profanity_language: "",
-                },
-              ];
-              
-              setFiles((prev) =>
-                prev.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        status: "completed",
-                        progress: 100,
-                        transcription: sampleTranscription,
-                        safetyReport: sampleSafetyReport,
-                      }
-                    : f,
-                ),
-              );
-            } else {
-              setFiles((prev) =>
-                prev.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        progress: Math.min(progress, 100),
-                      }
-                    : f,
-                ),
-              );
-            }
-          }, 300);
-        }, index * 500);
+  const pollJobUntilComplete = async (fileId: string, jobId: string) => {
+    while (true) {
+      const job = await fetchJobStatus(jobId);
+      if (job.status === "completed" && job.result) {
+        updateFile(fileId, {
+          status: "completed",
+          progress: 100,
+          transcription: job.result.transcription,
+          safetyReport: job.result.safety_report,
+          outputUrl: resolveApiAssetUrl(job.result.output_url),
+          outputMimeType: job.result.output_mime_type,
+          outputFilename: job.result.output_filename,
+          expanded: true,
+          errorMessage: undefined,
+        });
+        return;
       }
-    });
+
+      if (job.status === "error") {
+        throw new Error(job.error || "Processing failed");
+      }
+
+      updateFile(fileId, {
+        status: "processing",
+        progress: Math.max(5, Math.min(job.progress, 99)),
+      });
+
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    }
+  };
+
+  const handleStartProcessing = async () => {
+    const pendingFiles = files.filter((file) => file.status === "pending");
+
+    for (const file of pendingFiles) {
+      if (!file.file) {
+        updateFile(file.id, {
+          status: "error",
+          progress: 100,
+          errorMessage: "Only uploaded local files can be processed right now.",
+        });
+        continue;
+      }
+
+      try {
+        updateFile(file.id, {
+          status: "processing",
+          progress: 5,
+          errorMessage: undefined,
+        });
+
+        const job = await startProcessingJob(file.file, {
+          format: settings.format,
+          sensorType: settings.sensorType,
+        });
+
+        updateFile(file.id, { serverJobId: job.job_id });
+        await pollJobUntilComplete(file.id, job.job_id);
+      } catch (error) {
+        updateFile(file.id, {
+          status: "error",
+          progress: 100,
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : "Processing failed",
+        });
+      }
+    }
   };
 
   const handleRemoveFile = (id: string) => {
-    setFiles(files.filter((f) => f.id !== id));
+    setFiles((prev) => {
+      const fileToRemove = prev.find((file) => file.id === id);
+      if (fileToRemove?.previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(fileToRemove.previewUrl);
+      }
+      return prev.filter((file) => file.id !== id);
+    });
   };
 
   const handleClearCompleted = () => {
-    setFiles(files.filter((f) => f.status !== "completed"));
+    setFiles((prev) => {
+      prev
+        .filter((file) => file.status === "completed" && file.previewUrl?.startsWith("blob:"))
+        .forEach((file) => {
+          if (file.previewUrl) {
+            URL.revokeObjectURL(file.previewUrl);
+          }
+        });
+      return prev.filter((file) => file.status !== "completed");
+    });
   };
 
   const handleToggleExpanded = (id: string) => {
-    setFiles(files.map((f) => 
-      f.id === id ? { ...f, expanded: !f.expanded } : f
-    ));
+    setFiles((prev) =>
+      prev.map((file) =>
+        file.id === id
+          ? { ...file, expanded: !file.expanded }
+          : file,
+      ),
+    );
+  };
+
+  const handleDownloadFile = (id: string) => {
+    const file = files.find((entry) => entry.id === id);
+    if (!file?.outputUrl) {
+      return;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = file.outputUrl;
+    anchor.download = file.outputFilename || `${file.name}.sanitized`;
+    anchor.target = "_blank";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   };
 
   const handlePresetSelect = (preset: string) => {
@@ -375,6 +341,7 @@ export default function App() {
                 onRemoveFile={handleRemoveFile}
                 onClearCompleted={handleClearCompleted}
                 onToggleExpanded={handleToggleExpanded}
+                onDownloadFile={handleDownloadFile}
               />
             )}
           </TabsContent>

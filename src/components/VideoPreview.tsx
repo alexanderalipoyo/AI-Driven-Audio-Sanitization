@@ -8,6 +8,11 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
+  const mediaUrl = isCensored ? file.outputUrl : file.previewUrl;
+  const mediaType = isCensored ? file.outputMimeType : file.type;
+  const isVideo = mediaType?.startsWith('video/');
+  const isAudio = mediaType?.startsWith('audio/');
+
   return (
     <div className="p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -31,22 +36,35 @@ export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
       </div>
       
       <div className="bg-slate-950 rounded-lg overflow-hidden aspect-video flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <Video className="w-16 h-16 text-slate-700 mx-auto" />
-          <div>
-            <p className="text-slate-400 text-sm">
-              {isCensored ? 'Censored' : 'Original'} video preview
-            </p>
-            <p className="text-slate-600 text-xs mt-1">
-              {file.name}
-            </p>
+        {mediaUrl && isVideo ? (
+          <video src={mediaUrl} controls className="w-full h-full object-contain bg-black" />
+        ) : mediaUrl && isAudio ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <Video className="w-16 h-16 text-slate-700" />
+            <div>
+              <p className="text-slate-300 text-sm">{isCensored ? 'Sanitized' : 'Original'} audio preview</p>
+              <p className="text-slate-600 text-xs mt-1">{file.name}</p>
+            </div>
+            <audio src={mediaUrl} controls className="w-full max-w-lg" />
           </div>
-          {isCensored && (
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Profane content has been replaced with {file.file ? 'beep sound' : 'silence'}
-            </p>
-          )}
-        </div>
+        ) : (
+          <div className="text-center space-y-3">
+            <Video className="w-16 h-16 text-slate-700 mx-auto" />
+            <div>
+              <p className="text-slate-400 text-sm">
+                {isCensored ? 'Censored' : 'Original'} media preview
+              </p>
+              <p className="text-slate-600 text-xs mt-1">
+                {file.name}
+              </p>
+            </div>
+            {isCensored && (
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Sanitized output will appear here when processing completes.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

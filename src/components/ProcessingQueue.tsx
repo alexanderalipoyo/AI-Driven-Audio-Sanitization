@@ -14,6 +14,7 @@ interface ProcessingQueueProps {
   onRemoveFile: (id: string) => void;
   onClearCompleted: () => void;
   onToggleExpanded: (id: string) => void;
+  onDownloadFile: (id: string) => void;
 }
 
 export function ProcessingQueue({ 
@@ -22,6 +23,7 @@ export function ProcessingQueue({
   onRemoveFile,
   onClearCompleted,
   onToggleExpanded,
+  onDownloadFile,
 }: ProcessingQueueProps) {
   const hasPendingFiles = files.some(f => f.status === 'pending');
   const hasCompletedFiles = files.some(f => f.status === 'completed');
@@ -116,6 +118,7 @@ export function ProcessingQueue({
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => onDownloadFile(file.id)}
                               className="border-slate-700 text-slate-300 hover:bg-slate-800"
                             >
                               <Download className="w-4 h-4" />
@@ -144,6 +147,10 @@ export function ProcessingQueue({
                           {Math.round(file.progress)}% complete
                         </p>
                       </div>
+                    )}
+
+                    {file.errorMessage && (
+                      <p className="text-xs text-red-400 mt-2">{file.errorMessage}</p>
                     )}
                   </div>
                 </div>
