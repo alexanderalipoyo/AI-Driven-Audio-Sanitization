@@ -70,6 +70,17 @@ export interface ConversionSettings {
   preset?: string;
 }
 
+function shouldForceVideoDownload(mediaUrl: string) {
+  try {
+    const hostname = new URL(mediaUrl).hostname.toLowerCase();
+    return hostname.includes("youtube.com")
+      || hostname.includes("youtu.be")
+      || hostname.includes("tiktok.com");
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [activePage, setActivePage] = useState<"workspace" | "supported-languages">("workspace");
@@ -104,9 +115,12 @@ export default function App() {
     url: string;
   }) => {
     try {
+      const forceVideoDownload = shouldForceVideoDownload(options.url);
+      const urlAudioOnly = forceVideoDownload ? false : settings.audioOnly;
+
       const queued = await startProcessingUrlJob({
         url: options.url,
-        audioOnly: settings.audioOnly,
+        audioOnly: urlAudioOnly,
         playlist: false,
         format: settings.format,
         sensorType: settings.sensorType,
@@ -116,7 +130,7 @@ export default function App() {
         id: `${Date.now()}-url-${index}-${job.job_id}`,
         name: job.filename || "Remote media",
         size: 0,
-        type: settings.audioOnly ? "audio/unknown" : "video/unknown",
+        type: urlAudioOnly ? "audio/unknown" : "video/unknown",
         status: "processing",
         progress: 12,
         url: job.source_url || options.url,
