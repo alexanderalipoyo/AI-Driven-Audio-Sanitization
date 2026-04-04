@@ -1,4 +1,4 @@
-import { Card } from './ui/card';
+import { useState } from 'react';
 import { Video, Eye, EyeOff } from 'lucide-react';
 import type { AudioFile } from '../App';
 
@@ -8,10 +8,54 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
+  const [currentTime, setCurrentTime] = useState(0);
   const mediaUrl = isCensored ? file.outputUrl : file.previewUrl;
   const mediaType = isCensored ? file.outputMimeType : file.type;
   const isVideo = mediaType?.startsWith('video/');
   const isAudio = mediaType?.startsWith('audio/');
+  const words = file.transcription?.segments.flatMap((segment) => segment.words) ?? [];
+  const activeWords = words.filter((word) => currentTime >= word.start && currentTime <= word.end);
+  const subtitleWords = activeWords.length > 0 ? activeWords : words.filter((word) => {
+    const delta = currentTime - word.end;
+    return delta > 0 && delta < 0.12;
+  });
+  const subtitleText = subtitleWords.map((word) => word.word.trim()).join(' ');
+  const profaneWords = new Set(
+    (file.safetyReport ?? [])
+      .filter((item) => item.is_profane)
+      .map((item) => `${item.start.toFixed(2)}-${item.end.toFixed(2)}-${item.word.trim().toLowerCase()}`),
+  );
+
+  const renderSubtitleWords = () => (
+    subtitleWords.map((word, index) => {
+      const normalizedKey = `${word.start.toFixed(2)}-${word.end.toFixed(2)}-${word.word.trim().toLowerCase()}`;
+      const isProfaneWord = profaneWords.has(normalizedKey);
+      const displayWord = isCensored && isProfaneWord ? '****' : word.word.trim();
+      return (
+        <span
+          key={`${normalizedKey}-${index}`}
+          className={isProfaneWord && !isCensored ? 'text-red-400' : 'text-white'}
+        >
+          {index > 0 ? ' ' : ''}
+          {displayWord}
+        </span>
+      );
+    })
+  );
+
+  const renderSubtitle = () => {
+    if (!subtitleWords.length) {
+      return null;
+    }
+
+    return (
+      <div className="pointer-events-none absolute inset-x-4 bottom-20 px-4 text-center md:inset-x-6 md:bottom-24">
+        <p className="text-sm font-medium leading-relaxed text-white md:text-base" style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)' }}>
+          {renderSubtitleWords()}
+        </p>
+      </div>
+    );
+  };
 
   return (
     <div className="p-4">
@@ -35,9 +79,19 @@ export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
         )}
       </div>
       
-      <div className="bg-slate-950 rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+      <div className="bg-slate-950 rounded-lg overflow-hidden aspect-video flex items-center justify-center relative">
         {mediaUrl && isVideo ? (
-          <video src={mediaUrl} controls className="w-full h-full object-contain bg-black" />
+          <>
+            <video
+              src={mediaUrl}
+              controls
+              className="w-full h-full object-contain bg-black"
+              onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onSeeked={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onLoadedMetadata={() => setCurrentTime(0)}
+            />
+            {renderSubtitle()}
+          </>
         ) : mediaUrl && isAudio ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
             <Video className="w-16 h-16 text-slate-700" />
@@ -45,7 +99,19 @@ export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
               <p className="text-slate-300 text-sm">{isCensored ? 'Sanitized' : 'Original'} audio preview</p>
               <p className="text-slate-600 text-xs mt-1">{file.name}</p>
             </div>
-            <audio src={mediaUrl} controls className="w-full max-w-lg" />
+            <audio
+              src={mediaUrl}
+              controls
+              className="w-full max-w-lg"
+              onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onSeeked={(event) => setCurrentTime(event.currentTarget.currentTime)}
+              onLoadedMetadata={() => setCurrentTime(0)}
+            />
+            {subtitleText && (
+              <div className="px-4 py-1 text-sm text-white" style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)' }}>
+                {renderSubtitleWords()}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center space-y-3">
