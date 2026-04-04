@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import requests
 import whisper
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,7 +49,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "backend_data"
 JOBS_DIR = DATA_DIR / "jobs"
 VBW_CACHE_PATH = DATA_DIR / "vbw_classify.csv"
-VBW_SOURCE_URL = "https://raw.githubusercontent.com/hypernewbie/vbw/main/vbw_classify.csv"
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL", "base")
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 ALLOWED_EXTENSIONS = VIDEO_EXTENSIONS | {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".opus", ".aac", ".wma"}
@@ -134,14 +132,9 @@ def ensure_profanity_cache() -> Path:
     if VBW_CACHE_PATH.exists():
         return VBW_CACHE_PATH
 
-    try:
-        response = requests.get(VBW_SOURCE_URL, timeout=30)
-        response.raise_for_status()
-        VBW_CACHE_PATH.write_text(response.text, encoding="utf-8")
-    except Exception:
-        lines = ["word,language"]
-        lines.extend(f"{word},{language}" for word, language in FALLBACK_PROFANITY_MAP.items())
-        VBW_CACHE_PATH.write_text("\n".join(lines), encoding="utf-8")
+    lines = ["word,language"]
+    lines.extend(f"{word},{language}" for word, language in FALLBACK_PROFANITY_MAP.items())
+    VBW_CACHE_PATH.write_text("\n".join(lines), encoding="utf-8")
 
     return VBW_CACHE_PATH
 
