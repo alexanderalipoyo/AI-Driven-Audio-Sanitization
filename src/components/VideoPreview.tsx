@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Video, Eye, EyeOff } from 'lucide-react';
 import type { AudioFile } from '../App';
+import { WordTimestamps } from './WordTimestamps';
 
 interface VideoPreviewProps {
   file: AudioFile;
@@ -132,6 +133,13 @@ export function VideoPreview({ file, isCensored = false }: VideoPreviewProps) {
           </div>
         )}
       </div>
+
+      {!isCensored && file.transcription && (
+        <div className="mt-4 rounded-lg border border-slate-800/50 bg-slate-950/60 p-4">
+          <h5 className="mb-3 text-sm font-medium text-slate-200">Word-level Timestamps</h5>
+          <WordTimestamps file={file} />
+        </div>
+      )}
     </div>
   );
 }

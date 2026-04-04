@@ -3,7 +3,6 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AudioFile } from '../App';
-import { WordTimestamps } from './WordTimestamps';
 import { WordSafetyReport } from './WordSafetyReport';
 import { VideoPreview } from './VideoPreview';
 import { ProfanityGraphs } from './ProfanityGraphs';
@@ -160,14 +159,6 @@ export function ProcessingQueue({
               {file.status === 'completed' && file.expanded && (
                 <div className="border-t border-slate-800 bg-slate-950/80">
                   <div className="p-4 space-y-4">
-                    {/* Word Timestamps */}
-                    {file.transcription && (
-                      <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 p-4">
-                        <h4 className="text-slate-200 text-sm font-medium mb-3">Word-level Timestamps</h4>
-                        <WordTimestamps file={file} />
-                      </div>
-                    )}
-
                     {/* Word Safety Report */}
                     {file.safetyReport && (
                       <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
