@@ -35,7 +35,10 @@ export interface AudioFile {
   previewUrl?: string;
   outputUrl?: string;
   outputMimeType?: string;
+  outputPreviewUrl?: string;
+  outputPreviewMimeType?: string;
   outputFilename?: string;
+  requestedFormat?: string;
   errorMessage?: string;
   serverJobId?: string;
   transcription?: {
@@ -126,6 +129,8 @@ export default function App() {
           progress: 100,
           transcription: job.result.transcription,
           safetyReport: job.result.safety_report,
+          outputPreviewUrl: resolveApiAssetUrl(job.result.preview_url),
+          outputPreviewMimeType: job.result.preview_mime_type,
           outputUrl: resolveApiAssetUrl(job.result.output_url),
           outputMimeType: job.result.output_mime_type,
           outputFilename: job.result.output_filename,
@@ -150,6 +155,7 @@ export default function App() {
 
   const handleStartProcessing = async () => {
     const pendingFiles = files.filter((file) => file.status === "pending");
+    const processingSettings = { ...settings };
 
     for (const file of pendingFiles) {
       if (!file.file) {
@@ -165,12 +171,13 @@ export default function App() {
         updateFile(file.id, {
           status: "processing",
           progress: 5,
+          requestedFormat: processingSettings.format,
           errorMessage: undefined,
         });
 
         const job = await startProcessingJob(file.file, {
-          format: settings.format,
-          sensorType: settings.sensorType,
+          format: processingSettings.format,
+          sensorType: processingSettings.sensorType,
         });
 
         updateFile(file.id, { serverJobId: job.job_id });

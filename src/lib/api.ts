@@ -32,6 +32,8 @@ export interface ProcessingJobResult {
   output_url: string;
   output_filename: string;
   output_mime_type: string;
+  preview_url: string;
+  preview_mime_type: string;
   profane_count: number;
 }
 

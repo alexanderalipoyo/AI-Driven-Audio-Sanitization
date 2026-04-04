@@ -13,8 +13,8 @@ export function VideoPreview({ file, isCensored = false, showHeader = true }: Vi
   const [currentTime, setCurrentTime] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaUrl = isCensored ? file.outputUrl : file.previewUrl;
-  const mediaType = isCensored ? file.outputMimeType : file.type;
+  const mediaUrl = isCensored ? (file.outputPreviewUrl ?? file.outputUrl) : file.previewUrl;
+  const mediaType = isCensored ? (file.outputPreviewMimeType ?? file.outputMimeType) : file.type;
   const isVideo = mediaType?.startsWith('video/');
   const isAudio = mediaType?.startsWith('audio/');
   const words = file.transcription?.segments.flatMap((segment) => segment.words) ?? [];

@@ -372,7 +372,7 @@ def mux_video_with_audio(video_path: Path, audio_path: Path, output_path: Path) 
         raise RuntimeError(completed.stderr.strip() or "ffmpeg failed to mux video")
 
 
-def build_output_file(job: JobState, classified_words: list[dict[str, Any]]) -> tuple[Path, str]:
+def build_output_file(job: JobState, classified_words: list[dict[str, Any]]) -> tuple[Path, str, Path | None, str | None]:
     job_dir = job.input_path.parent
     source_suffix = job.input_path.suffix.lower()
     source_is_video = source_suffix in VIDEO_EXTENSIONS or job.input_mime_type.startswith("video/")
@@ -384,7 +384,23 @@ def build_output_file(job: JobState, classified_words: list[dict[str, Any]]) -> 
         output_path = job_dir / f"sanitized_output{output_suffix}"
         sanitize_audio(job.input_path, sanitized_intervals, job.censor_type, audio_track_path, "wav")
         mux_video_with_audio(job.input_path, audio_track_path, output_path)
-        return output_path, mimetypes.guess_type(output_path.name)[0] or "video/mp4"
+
+        preview_path: Path | None = None
+        preview_mime_type: str | None = None
+        if job.requested_format == "mp4":
+            preview_path = output_path
+            preview_mime_type = mimetypes.guess_type(output_path.name)[0] or "video/mp4"
+        else:
+            preview_path = job_dir / "sanitized_preview.mp4"
+            mux_video_with_audio(job.input_path, audio_track_path, preview_path)
+            preview_mime_type = "video/mp4"
+
+        return (
+            output_path,
+            mimetypes.guess_type(output_path.name)[0] or "video/mp4",
+            preview_path,
+            preview_mime_type,
+        )
 
     output_suffix = source_suffix if source_suffix not in VIDEO_EXTENSIONS else ".mp3"
     if output_suffix not in {".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a"}:
@@ -393,7 +409,7 @@ def build_output_file(job: JobState, classified_words: list[dict[str, Any]]) -> 
     output_format = output_suffix.lstrip(".")
     output_path = job_dir / f"sanitized_output{output_suffix}"
     sanitize_audio(job.input_path, sanitized_intervals, job.censor_type, output_path, output_format)
-    return output_path, mimetypes.guess_type(output_path.name)[0] or "audio/mpeg"
+    return output_path, mimetypes.guess_type(output_path.name)[0] or "audio/mpeg", None, None
 
 
 def process_job(job_id: str) -> None:
@@ -412,7 +428,7 @@ def process_job(job_id: str) -> None:
         classified_words = classify_profanity(words, profanity_map)
 
         update_job(job_id, progress=82.0)
-        output_path, output_mime_type = build_output_file(job, classified_words)
+        output_path, output_mime_type, preview_path, preview_mime_type = build_output_file(job, classified_words)
 
         result = {
             "transcription": build_transcription_payload(transcription_result),
@@ -420,6 +436,8 @@ def process_job(job_id: str) -> None:
             "output_url": f"/api/jobs/{job_id}/download",
             "output_filename": output_path.name,
             "output_mime_type": output_mime_type,
+            "preview_url": f"/api/jobs/{job_id}/preview" if preview_path else f"/api/jobs/{job_id}/download",
+            "preview_mime_type": preview_mime_type or output_mime_type,
             "profane_count": sum(1 for word in classified_words if word["is_profane"]),
         }
 
@@ -527,4 +545,23 @@ def download_output(job_id: str) -> FileResponse:
         path=output_path,
         media_type=job.result["output_mime_type"],
         filename=output_path.name,
+    )
+
+
+@app.get("/api/jobs/{job_id}/preview")
+def preview_output(job_id: str) -> FileResponse:
+    job = get_job(job_id)
+    if not job.result:
+        raise HTTPException(status_code=404, detail="Job output not ready")
+
+    preview_url = job.result.get("preview_url")
+    preview_filename = "sanitized_preview.mp4" if preview_url and preview_url.endswith("/preview") else job.result["output_filename"]
+    preview_path = job.input_path.parent / preview_filename
+    if not preview_path.exists():
+        raise HTTPException(status_code=404, detail="Preview file missing")
+
+    return FileResponse(
+        path=preview_path,
+        media_type=job.result.get("preview_mime_type") or job.result["output_mime_type"],
+        filename=preview_path.name,
     )
