@@ -48,6 +48,10 @@ export function ProcessingQueue({
         return right.index - left.index;
       }
 
+      if (left.file.status === 'completed') {
+        return right.index - left.index;
+      }
+
       return left.index - right.index;
     })
     .map(({ file }) => file);

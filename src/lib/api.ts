@@ -93,6 +93,24 @@ function toApiUrl(path: string) {
   return `${apiBaseUrl}${path}`;
 }
 
+async function readErrorDetail(response: Response, fallbackMessage: string) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = await response.json() as { detail?: string };
+      if (payload.detail) {
+        return payload.detail;
+      }
+    } catch {
+      // Fall through to plain-text handling.
+    }
+  }
+
+  const detail = await response.text();
+  return detail || fallbackMessage;
+}
+
 export function resolveApiAssetUrl(path: string) {
   return toApiUrl(path);
 }
@@ -115,7 +133,7 @@ export async function startProcessingJob(file: File, settings: ProcessingApiSett
   });
 
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to start processing job");
     throw new Error(detail || "Failed to start processing job");
   }
 
@@ -139,7 +157,7 @@ export async function startProcessingUrlJob(settings: UrlProcessingApiSettings) 
   });
 
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to start URL processing job");
     throw new Error(detail || "Failed to start URL processing job");
   }
 
@@ -149,7 +167,7 @@ export async function startProcessingUrlJob(settings: UrlProcessingApiSettings) 
 export async function fetchJobStatus(jobId: string) {
   const response = await fetch(toApiUrl(`/api/jobs/${jobId}`));
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to fetch job status");
     throw new Error(detail || "Failed to fetch job status");
   }
 
@@ -162,7 +180,7 @@ export async function deleteJob(jobId: string) {
   });
 
   if (!response.ok && response.status !== 404) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to delete job");
     throw new Error(detail || "Failed to delete job");
   }
 }
@@ -170,7 +188,7 @@ export async function deleteJob(jobId: string) {
 export async function fetchSupportedLanguages() {
   const response = await fetch(toApiUrl("/api/supported-languages"));
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to fetch supported languages");
     throw new Error(detail || "Failed to fetch supported languages");
   }
 
@@ -180,7 +198,7 @@ export async function fetchSupportedLanguages() {
 export async function fetchSupportedLanguageEntries(csvFilename: string) {
   const response = await fetch(toApiUrl(`/api/supported-languages/${encodeURIComponent(csvFilename)}`));
   if (!response.ok) {
-    const detail = await response.text();
+    const detail = await readErrorDetail(response, "Failed to fetch supported language entries");
     throw new Error(detail || "Failed to fetch supported language entries");
   }
 
