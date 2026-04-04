@@ -4,9 +4,10 @@ import type { AudioFile } from '../App';
 
 interface WordSafetyReportProps {
   file: AudioFile;
+  showHeader?: boolean;
 }
 
-export function WordSafetyReport({ file }: WordSafetyReportProps) {
+export function WordSafetyReport({ file, showHeader = true }: WordSafetyReportProps) {
   if (!file.safetyReport) {
     return null;
   }
@@ -15,25 +16,27 @@ export function WordSafetyReport({ file }: WordSafetyReportProps) {
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-violet-400" />
-          <h4 className="text-slate-200 text-sm font-medium">Word Safety Report</h4>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-violet-400" />
+            <h4 className="text-slate-200 text-sm font-medium">Word Safety Report</h4>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {profaneCount > 0 ? (
+              <>
+                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                <span className="text-amber-400">{profaneCount} profane word{profaneCount !== 1 ? 's' : ''} detected</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-3 h-3 text-emerald-400" />
+                <span className="text-emerald-400">No profanity detected</span>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          {profaneCount > 0 ? (
-            <>
-              <AlertTriangle className="w-3 h-3 text-amber-400" />
-              <span className="text-amber-400">{profaneCount} profane word{profaneCount !== 1 ? 's' : ''} detected</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-400">No profanity detected</span>
-            </>
-          )}
-        </div>
-      </div>
+      )}
       
       <div className="bg-slate-950 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">

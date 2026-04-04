@@ -1,6 +1,7 @@
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
+import { useState } from 'react';
 import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AudioFile } from '../App';
 import { WordSafetyReport } from './WordSafetyReport';
@@ -24,9 +25,25 @@ export function ProcessingQueue({
   onToggleExpanded,
   onDownloadFile,
 }: ProcessingQueueProps) {
+  const [sectionState, setSectionState] = useState<Record<string, boolean>>({});
   const hasPendingFiles = files.some(f => f.status === 'pending');
   const hasCompletedFiles = files.some(f => f.status === 'completed');
   const isProcessing = files.some(f => f.status === 'processing');
+
+  const getSectionKey = (fileId: string, sectionId: string) => `${fileId}:${sectionId}`;
+
+  const isSectionOpen = (fileId: string, sectionId: string) => {
+    const key = getSectionKey(fileId, sectionId);
+    return sectionState[key] ?? true;
+  };
+
+  const toggleSection = (fileId: string, sectionId: string) => {
+    const key = getSectionKey(fileId, sectionId);
+    setSectionState((prev) => ({
+      ...prev,
+      [key]: !(prev[key] ?? true),
+    }));
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return 'Unknown size';
@@ -34,6 +51,33 @@ export function ProcessingQueue({
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const renderAnalysisSection = (
+    fileId: string,
+    sectionId: string,
+    title: string,
+    content: React.ReactNode,
+  ) => {
+    const open = isSectionOpen(fileId, sectionId);
+
+    return (
+      <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-800/50 px-4 py-3">
+          <h4 className="text-sm font-medium text-slate-200">{title}</h4>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => toggleSection(fileId, sectionId)}
+            className="h-8 border-slate-700 text-slate-300 hover:bg-slate-800"
+          >
+            {open ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+            {open ? 'Close' : 'Open'}
+          </Button>
+        </div>
+        {open && content}
+      </div>
+    );
   };
 
   return (
@@ -161,26 +205,38 @@ export function ProcessingQueue({
                   <div className="p-4 space-y-4">
                     {/* Word Safety Report */}
                     {file.safetyReport && (
-                      <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
-                        <WordSafetyReport file={file} />
-                      </div>
+                      renderAnalysisSection(
+                        file.id,
+                        'word-safety-report',
+                        'Word Safety Report',
+                        <WordSafetyReport file={file} showHeader={false} />,
+                      )
                     )}
 
                     {/* Uncensored Video Preview */}
-                    <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
-                      <VideoPreview file={file} isCensored={false} />
-                    </div>
+                    {renderAnalysisSection(
+                      file.id,
+                      'uncensored-video-preview',
+                      'Uncensored Video Preview',
+                      <VideoPreview file={file} isCensored={false} showHeader={false} />,
+                    )}
 
                     {/* Censored Video Preview */}
-                    <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
-                      <VideoPreview file={file} isCensored={true} />
-                    </div>
+                    {renderAnalysisSection(
+                      file.id,
+                      'censored-video-preview',
+                      'Censored Video Preview',
+                      <VideoPreview file={file} isCensored={true} showHeader={false} />,
+                    )}
 
                     {/* Profanity Analytics Dashboard */}
                     {file.safetyReport && (
-                      <div className="bg-slate-900/50 rounded-lg border border-slate-800/50 overflow-hidden">
-                        <ProfanityGraphs file={file} />
-                      </div>
+                      renderAnalysisSection(
+                        file.id,
+                        'profanity-analytics-dashboard',
+                        'Profanity Analytics Dashboard',
+                        <ProfanityGraphs file={file} showHeader={false} />,
+                      )
                     )}
                   </div>
                 </div>

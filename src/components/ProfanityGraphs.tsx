@@ -18,9 +18,10 @@ import {
 
 interface ProfanityGraphsProps {
   file: AudioFile;
+  showHeader?: boolean;
 }
 
-export function ProfanityGraphs({ file }: ProfanityGraphsProps) {
+export function ProfanityGraphs({ file, showHeader = true }: ProfanityGraphsProps) {
   if (!file.safetyReport) {
     return null;
   }
@@ -31,10 +32,12 @@ export function ProfanityGraphs({ file }: ProfanityGraphsProps) {
   if (profaneWords.length === 0) {
     return (
       <div className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-4 h-4 text-violet-400" />
-          <h4 className="text-slate-200 text-sm font-medium">Profanity Analysis</h4>
-        </div>
+        {showHeader && (
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-violet-400" />
+            <h4 className="text-slate-200 text-sm font-medium">Profanity Analysis</h4>
+          </div>
+        )}
         <div className="bg-gradient-to-br from-emerald-950/30 to-emerald-900/10 border border-emerald-800/30 rounded-xl p-12 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 mb-4">
             <AlertCircle className="w-8 h-8 text-emerald-400" />
@@ -142,24 +145,25 @@ export function ProfanityGraphs({ file }: ProfanityGraphsProps) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-violet-500/20 to-purple-600/20 rounded-lg border border-violet-500/30">
-            <BarChart3 className="w-4 h-4 text-violet-400" />
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-violet-500/20 to-purple-600/20 rounded-lg border border-violet-500/30">
+              <BarChart3 className="w-4 h-4 text-violet-400" />
+            </div>
+            <div>
+              <h4 className="text-slate-200 text-sm font-medium">Profanity Analytics Dashboard</h4>
+              <p className="text-slate-400 text-xs">Comprehensive content analysis</p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-slate-200 text-sm font-medium">Profanity Analytics Dashboard</h4>
-            <p className="text-slate-400 text-xs">Comprehensive content analysis</p>
+          <div className="text-right">
+            <div className="text-xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+              {profaneWords.length}
+            </div>
+            <div className="text-xs text-slate-500">Total Detections</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xl font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
-            {profaneWords.length}
-          </div>
-          <div className="text-xs text-slate-500">Total Detections</div>
-        </div>
-      </div>
+      )}
 
       {/* Grid Layout for Charts */}
       <div className="grid lg:grid-cols-2 gap-4">
