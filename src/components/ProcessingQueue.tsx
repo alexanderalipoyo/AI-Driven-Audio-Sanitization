@@ -90,6 +90,55 @@ export function ProcessingQueue({
     return parts.join(' • ');
   };
 
+  const formatEta = (remainingMs: number) => {
+    const totalSeconds = Math.max(1, Math.round(remainingMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+
+    return `${seconds}s`;
+  };
+
+  const getEtaLabel = (file: AudioFile) => {
+    if (file.status !== 'processing') {
+      return null;
+    }
+
+    if (!file.processingStartedAt) {
+      return 'Estimating time remaining...';
+    }
+
+    const baselineProgress = file.processingBaselineProgress ?? 0;
+    const progressedBy = file.progress - baselineProgress;
+    const elapsedMs = Date.now() - file.processingStartedAt;
+
+    if (progressedBy < 8 || elapsedMs < 4000) {
+      return 'Estimating time remaining...';
+    }
+
+    const remainingProgress = 100 - file.progress;
+    if (remainingProgress <= 0) {
+      return 'Finishing up...';
+    }
+
+    const msPerProgressPoint = elapsedMs / progressedBy;
+    const remainingMs = msPerProgressPoint * remainingProgress;
+
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+      return 'Estimating time remaining...';
+    }
+
+    return `Estimated ${formatEta(remainingMs)} left`;
+  };
+
   const renderAnalysisSection = (
     fileId: string,
     sectionId: string,
@@ -223,9 +272,10 @@ export function ProcessingQueue({
                           value={file.progress} 
                           className="h-1.5 bg-slate-800"
                         />
-                        <p className="text-xs text-slate-500">
-                          {Math.round(file.progress)}% complete
-                        </p>
+                          <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                            <p>{Math.round(file.progress)}% complete</p>
+                            {file.status === 'processing' && <p>{getEtaLabel(file)}</p>}
+                          </div>
                       </div>
                     )}
 

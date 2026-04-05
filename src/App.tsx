@@ -39,6 +39,8 @@ export interface AudioFile {
   requestedFormat?: string;
   errorMessage?: string;
   serverJobId?: string;
+  processingStartedAt?: number;
+  processingBaselineProgress?: number;
   transcription?: {
     segments: Array<{
       words: Array<{
@@ -139,6 +141,8 @@ export default function App() {
         url: job.source_url || options.url,
         requestedFormat: settings.format,
         serverJobId: job.job_id,
+        processingStartedAt: Date.now(),
+        processingBaselineProgress: 12,
       }));
 
       setFiles((prev) => [...prev, ...queuedFiles]);
@@ -195,10 +199,23 @@ export default function App() {
         throw new Error(job.error || "Processing failed");
       }
 
-      updateFile(fileId, {
-        status: "processing",
-        progress: Math.max(5, Math.min(job.progress, 99)),
-      });
+      setFiles((prev) =>
+        prev.map((file) => {
+          if (file.id !== fileId) {
+            return file;
+          }
+
+          const nextProgress = Math.max(5, Math.min(job.progress, 99));
+
+          return {
+            ...file,
+            status: "processing",
+            progress: nextProgress,
+            processingStartedAt: file.processingStartedAt ?? Date.now(),
+            processingBaselineProgress: file.processingBaselineProgress ?? nextProgress,
+          };
+        }),
+      );
 
       await new Promise((resolve) => window.setTimeout(resolve, 1000));
     }
@@ -219,11 +236,14 @@ export default function App() {
       }
 
       try {
+        const processingStartedAt = Date.now();
         updateFile(file.id, {
           status: "processing",
           progress: 5,
           requestedFormat: processingSettings.format,
           errorMessage: undefined,
+          processingStartedAt,
+          processingBaselineProgress: 5,
         });
 
         const job = await startProcessingJob(file.file, {
