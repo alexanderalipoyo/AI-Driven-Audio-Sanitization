@@ -36,6 +36,7 @@ export function SupportedLanguagesPage() {
   const [isDialogLoading, setIsDialogLoading] = useState(false);
   const [isLoadingMoreEntries, setIsLoadingMoreEntries] = useState(false);
   const [dialogErrorMessage, setDialogErrorMessage] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [definitionCache, setDefinitionCache] = useState<Record<string, DefinitionState>>({});
   const [entriesTotal, setEntriesTotal] = useState(0);
@@ -181,6 +182,16 @@ export function SupportedLanguagesPage() {
   };
 
   useEffect(() => {
+    const debounceTimer = window.setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(debounceTimer);
+    };
+  }, [searchInput]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const loadLanguages = async () => {
@@ -224,14 +235,19 @@ export function SupportedLanguagesPage() {
         setIsLoadingMoreEntries(false);
         setEntriesTotal(0);
         setHasMoreEntries(false);
+        setSearchInput("");
         setSearchTerm("");
         return;
       }
 
       try {
         setDialogErrorMessage(null);
+        setSearchInput("");
         setSearchTerm("");
         setDefinitionCache({});
+        setLanguageEntries([]);
+        setEntriesTotal(0);
+        setHasMoreEntries(false);
         if (!isMounted) {
           return;
         }
@@ -308,73 +324,73 @@ export function SupportedLanguagesPage() {
           </DialogHeader>
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-            {isDialogLoading ? (
-              <div className="flex items-center gap-3 py-8 text-slate-300">
-                <LoaderCircle className="h-5 w-5 animate-spin" />
-                Loading CSV data...
-              </div>
-            ) : dialogErrorMessage ? (
-              <div className="py-4 text-rose-300">{dialogErrorMessage}</div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                      CSV entries
-                    </div>
-                    <div className="mt-1 text-sm leading-6 text-slate-400">
-                      Words loaded from the selected profanity CSV file. Hover any word to see its meaning.
-                    </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                    CSV entries
                   </div>
-                  <div className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-100">
-                    {entriesTotal.toLocaleString()}
+                  <div className="mt-1 text-sm leading-6 text-slate-400">
+                    Words loaded from the selected profanity CSV file. Hover any word to see its meaning.
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="language-entry-search" className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                    Search profanity
-                  </label>
-                  <Input
-                    id="language-entry-search"
-                    type="text"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search for a word in this CSV"
-                    className="border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500"
-                  />
-                </div>
-
-                <div
-                  className="max-h-[50vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80"
-                  onScroll={handleEntriesScroll}
-                >
-                  {filteredEntries.length > 0 ? (
-                    <div className="grid gap-px bg-slate-800">
-                      {filteredEntries.map((entry, index) => (
-                        <div
-                          key={`${selectedLanguage?.file}-${entry}-${index}`}
-                          className="grid grid-cols-[80px_1fr] gap-4 bg-slate-950 px-4 py-3 text-sm text-slate-200"
-                        >
-                          <span className="text-slate-500">{index + 1}</span>
-                          <span className="break-all">{renderDefinitionTooltip(entry)}</span>
-                        </div>
-                      ))}
-                      {isLoadingMoreEntries && (
-                        <div className="flex items-center justify-center gap-2 bg-slate-950 px-4 py-4 text-sm text-slate-300">
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Loading more entries...
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="px-4 py-10 text-center text-sm text-slate-400">
-                      No matching profanity found in this CSV.
-                    </div>
-                  )}
+                <div className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-100">
+                  {entriesTotal.toLocaleString()}
                 </div>
               </div>
-            )}
+
+              <div className="space-y-2">
+                <label htmlFor="language-entry-search" className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Search profanity
+                </label>
+                <Input
+                  id="language-entry-search"
+                  type="text"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search for a word in this CSV"
+                  className="border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500"
+                />
+              </div>
+
+              <div
+                className="h-[50vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80"
+                onScroll={handleEntriesScroll}
+              >
+                {dialogErrorMessage && filteredEntries.length === 0 ? (
+                  <div className="flex h-full items-center justify-center px-4 text-center text-rose-300">
+                    {dialogErrorMessage}
+                  </div>
+                ) : isDialogLoading && filteredEntries.length === 0 ? (
+                  <div className="flex h-full items-center justify-center gap-3 px-4 text-slate-300">
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                    Loading CSV data...
+                  </div>
+                ) : filteredEntries.length > 0 ? (
+                  <div className="grid gap-px bg-slate-800">
+                    {filteredEntries.map((entry, index) => (
+                      <div
+                        key={`${selectedLanguage?.file}-${entry}-${index}`}
+                        className="grid grid-cols-[80px_1fr] gap-4 bg-slate-950 px-4 py-3 text-sm text-slate-200"
+                      >
+                        <span className="text-slate-500">{index + 1}</span>
+                        <span className="break-all">{renderDefinitionTooltip(entry)}</span>
+                      </div>
+                    ))}
+                    {(isDialogLoading || isLoadingMoreEntries) && (
+                      <div className="flex items-center justify-center gap-2 bg-slate-950 px-4 py-4 text-sm text-slate-300">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        {isLoadingMoreEntries ? "Loading more entries..." : "Refreshing results..."}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-400">
+                    No matching profanity found in this CSV.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
