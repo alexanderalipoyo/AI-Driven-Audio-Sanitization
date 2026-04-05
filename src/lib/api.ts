@@ -84,6 +84,9 @@ export interface SupportedLanguageEntriesResponse {
   file: string;
   entries: string[];
   total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
 }
 
 export interface DictionaryDefinitionResponse {
@@ -202,8 +205,25 @@ export async function fetchSupportedLanguages() {
   return response.json() as Promise<SupportedLanguagesResponse>;
 }
 
-export async function fetchSupportedLanguageEntries(csvFilename: string) {
-  const response = await fetch(toApiUrl(`/api/supported-languages/${encodeURIComponent(csvFilename)}`));
+export async function fetchSupportedLanguageEntries(
+  csvFilename: string,
+  options?: { offset?: number; limit?: number; search?: string },
+) {
+  const params = new URLSearchParams();
+  if (typeof options?.offset === "number") {
+    params.set("offset", String(options.offset));
+  }
+  if (typeof options?.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+  if (options?.search) {
+    params.set("search", options.search);
+  }
+
+  const query = params.toString();
+  const response = await fetch(
+    toApiUrl(`/api/supported-languages/${encodeURIComponent(csvFilename)}${query ? `?${query}` : ""}`),
+  );
   if (!response.ok) {
     const detail = await readErrorDetail(response, "Failed to fetch supported language entries");
     throw new Error(detail || "Failed to fetch supported language entries");

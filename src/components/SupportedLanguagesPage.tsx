@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Languages, LoaderCircle } from "lucide-react";
 
 import {
@@ -27,20 +27,74 @@ type DefinitionState = {
 };
 
 export function SupportedLanguagesPage() {
+  const ENTRIES_PAGE_SIZE = 120;
   const [languages, setLanguages] = useState<SupportedLanguage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage | null>(null);
   const [languageEntries, setLanguageEntries] = useState<string[]>([]);
   const [isDialogLoading, setIsDialogLoading] = useState(false);
+  const [isLoadingMoreEntries, setIsLoadingMoreEntries] = useState(false);
   const [dialogErrorMessage, setDialogErrorMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [definitionCache, setDefinitionCache] = useState<Record<string, DefinitionState>>({});
+  const [entriesTotal, setEntriesTotal] = useState(0);
+  const [hasMoreEntries, setHasMoreEntries] = useState(false);
+  const activeEntriesRequestRef = useRef(0);
 
   const normalizedSearchTerm = searchTerm.trim().toLocaleLowerCase();
-  const filteredEntries = normalizedSearchTerm
-    ? languageEntries.filter((entry) => entry.toLocaleLowerCase().includes(normalizedSearchTerm))
-    : languageEntries;
+  const filteredEntries = languageEntries;
+
+  const loadLanguageEntriesPage = async (
+    language: SupportedLanguage,
+    options?: { reset?: boolean; offset?: number; search?: string },
+  ) => {
+    const reset = options?.reset ?? false;
+    const offset = options?.offset ?? 0;
+    const requestId = activeEntriesRequestRef.current + 1;
+    activeEntriesRequestRef.current = requestId;
+
+    if (reset) {
+      setIsDialogLoading(true);
+      setDialogErrorMessage(null);
+    } else {
+      setIsLoadingMoreEntries(true);
+    }
+
+    try {
+      const response = await fetchSupportedLanguageEntries(language.file, {
+        offset,
+        limit: ENTRIES_PAGE_SIZE,
+        search: options?.search,
+      });
+
+      if (activeEntriesRequestRef.current !== requestId) {
+        return;
+      }
+
+      setEntriesTotal(response.total);
+      setHasMoreEntries(response.has_more);
+      setLanguageEntries((prev) => (reset ? response.entries : [...prev, ...response.entries]));
+    } catch (error) {
+      if (activeEntriesRequestRef.current !== requestId) {
+        return;
+      }
+
+      setDialogErrorMessage(
+        error instanceof Error ? error.message : "Failed to load CSV entries.",
+      );
+      if (reset) {
+        setLanguageEntries([]);
+        setEntriesTotal(0);
+        setHasMoreEntries(false);
+      }
+    } finally {
+      if (activeEntriesRequestRef.current === requestId) {
+        setIsDialogLoading(false);
+        setIsLoadingMoreEntries(false);
+      }
+    }
+  };
 
   const loadDefinition = async (entry: string) => {
     if (!selectedLanguage) {
@@ -167,20 +221,21 @@ export function SupportedLanguagesPage() {
         setLanguageEntries([]);
         setDialogErrorMessage(null);
         setIsDialogLoading(false);
+        setIsLoadingMoreEntries(false);
+        setEntriesTotal(0);
+        setHasMoreEntries(false);
         setSearchTerm("");
         return;
       }
 
       try {
-        setIsDialogLoading(true);
         setDialogErrorMessage(null);
         setSearchTerm("");
         setDefinitionCache({});
-        const response = await fetchSupportedLanguageEntries(selectedLanguage.file);
         if (!isMounted) {
           return;
         }
-        setLanguageEntries(response.entries);
+        await loadLanguageEntriesPage(selectedLanguage, { reset: true, offset: 0, search: "" });
       } catch (error) {
         if (!isMounted) {
           return;
@@ -189,10 +244,6 @@ export function SupportedLanguagesPage() {
           error instanceof Error ? error.message : "Failed to load CSV entries.",
         );
         setLanguageEntries([]);
-      } finally {
-        if (isMounted) {
-          setIsDialogLoading(false);
-        }
       }
     };
 
@@ -202,6 +253,39 @@ export function SupportedLanguagesPage() {
       isMounted = false;
     };
   }, [selectedLanguage]);
+
+  useEffect(() => {
+    if (!selectedLanguage) {
+      return;
+    }
+
+    setDefinitionCache({});
+    setLanguageEntries([]);
+    setEntriesTotal(0);
+    setHasMoreEntries(false);
+    void loadLanguageEntriesPage(selectedLanguage, {
+      reset: true,
+      offset: 0,
+      search: normalizedSearchTerm,
+    });
+  }, [normalizedSearchTerm, selectedLanguage]);
+
+  const handleEntriesScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    if (!hasMoreEntries || isDialogLoading || isLoadingMoreEntries || !selectedLanguage) {
+      return;
+    }
+
+    const currentTarget = event.currentTarget;
+    const remainingScroll = currentTarget.scrollHeight - currentTarget.scrollTop - currentTarget.clientHeight;
+    if (remainingScroll > 160) {
+      return;
+    }
+
+    void loadLanguageEntriesPage(selectedLanguage, {
+      offset: languageEntries.length,
+      search: normalizedSearchTerm,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -243,7 +327,7 @@ export function SupportedLanguagesPage() {
                     </div>
                   </div>
                   <div className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-100">
-                    {filteredEntries.length.toLocaleString()}
+                    {entriesTotal.toLocaleString()}
                   </div>
                 </div>
 
@@ -261,7 +345,10 @@ export function SupportedLanguagesPage() {
                   />
                 </div>
 
-                <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80">
+                <div
+                  className="max-h-[50vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/80"
+                  onScroll={handleEntriesScroll}
+                >
                   {filteredEntries.length > 0 ? (
                     <div className="grid gap-px bg-slate-800">
                       {filteredEntries.map((entry, index) => (
@@ -273,6 +360,12 @@ export function SupportedLanguagesPage() {
                           <span className="break-all">{renderDefinitionTooltip(entry)}</span>
                         </div>
                       ))}
+                      {isLoadingMoreEntries && (
+                        <div className="flex items-center justify-center gap-2 bg-slate-950 px-4 py-4 text-sm text-slate-300">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Loading more entries...
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="px-4 py-10 text-center text-sm text-slate-400">
