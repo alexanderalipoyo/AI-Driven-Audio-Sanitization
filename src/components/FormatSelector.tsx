@@ -106,6 +106,7 @@ export function FormatSelector({ settings, onSettingsChange, showAudioOnly = fal
               <Switch
                 checked={settings.audioOnly}
                 onCheckedChange={(value) => onSettingsChange({ ...settings, audioOnly: value })}
+                className="data-[state=checked]:bg-cyan-500 data-[state=checked]:shadow-[0_0_0_3px_rgba(6,182,212,0.25)] data-[state=unchecked]:bg-slate-700 focus-visible:ring-cyan-400/50"
               />
             </div>
           )}
