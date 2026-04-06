@@ -27,7 +27,7 @@ export function DictionaryTooltipWord({ term, language, displayText, className }
 
   const loadDefinition = async () => {
     const cachedEntry = definitionCache[cacheKey];
-    if (cachedEntry && cachedEntry.status !== 'idle' && cachedEntry.status !== 'error') {
+    if (cachedEntry && cachedEntry.status !== 'idle') {
       setDefinitionState(cachedEntry);
       return;
     }
@@ -51,6 +51,7 @@ export function DictionaryTooltipWord({ term, language, displayText, className }
         status: 'error',
         errorMessage: error instanceof Error ? error.message : 'Definition not available.',
       };
+      definitionCache[cacheKey] = errorState;
       setDefinitionState(errorState);
     }
   };
