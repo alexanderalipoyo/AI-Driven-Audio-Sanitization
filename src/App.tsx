@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { SupportedLanguagesPage } from "./components/SupportedLanguagesPage";
-import { deleteJob, fetchJobStatus, resolveApiAssetUrl, startProcessingJob, startProcessingUrlJob } from "./lib/api";
+import { toast } from "sonner";
+import { deleteJob, fetchDictionaryDefinition, fetchJobStatus, resolveApiAssetUrl, startProcessingJob, startProcessingUrlJob } from "./lib/api";
+import { downloadProcessingReportPdf } from "./lib/pdfReport";
 
 export interface AudioFile {
   id: string;
@@ -58,6 +60,8 @@ export interface AudioFile {
     is_profane: boolean;
     matched_profanity: string | null;
     matched_profanity_language: string;
+    not_safe_prob?: number;
+    safe_prob?: number;
   }>;
   expanded?: boolean;
 }
@@ -342,6 +346,72 @@ export default function App() {
     document.body.removeChild(anchor);
   };
 
+  const handleDownloadReport = async (id: string) => {
+    const file = files.find((entry) => entry.id === id);
+    if (!file || file.status !== "completed" || !file.safetyReport) {
+      toast.error("Report is only available for completed items");
+      return;
+    }
+
+    const loadingToastId = toast.loading("Preparing PDF report...");
+
+    try {
+      const profaneEntries = file.safetyReport.filter(
+        (entry) => entry.is_profane && entry.matched_profanity_language,
+      );
+
+      const uniqueTerms = new Map<string, { term: string; language: string }>();
+      profaneEntries.forEach((entry) => {
+        const term = entry.matched_profanity || entry.word;
+        const language = entry.matched_profanity_language;
+        const key = `${term.toLowerCase()}::${language.toLowerCase()}`;
+        if (!uniqueTerms.has(key)) {
+          uniqueTerms.set(key, { term, language });
+        }
+      });
+
+      const meaningResults = await Promise.allSettled(
+        Array.from(uniqueTerms.values()).map(async (item) => {
+          try {
+            const definition = await fetchDictionaryDefinition(item.term, item.language);
+            return {
+              term: item.term,
+              language: item.language,
+              definition: definition.definition,
+              partOfSpeech: definition.part_of_speech,
+              source: definition.source,
+            };
+          } catch {
+            return {
+              term: item.term,
+              language: item.language,
+              definition: "Definition unavailable.",
+              partOfSpeech: "",
+              source: "",
+            };
+          }
+        }),
+      );
+
+      const meanings = meaningResults
+        .filter((result): result is PromiseFulfilledResult<{ term: string; language: string; definition: string; partOfSpeech?: string; source?: string }> => result.status === "fulfilled")
+        .map((result) => result.value);
+
+      downloadProcessingReportPdf({
+        file,
+        meanings,
+      });
+
+      toast.success("PDF report downloaded", {
+        id: loadingToastId,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to generate report", {
+        id: loadingToastId,
+      });
+    }
+  };
+
   const handleReprocessFile = async (id: string) => {
     const file = files.find((entry) => entry.id === id);
     if (!file || file.status === "processing") {
@@ -572,6 +642,7 @@ export default function App() {
                 onClearCompleted={handleClearCompleted}
                 onToggleExpanded={handleToggleExpanded}
                 onDownloadFile={handleDownloadFile}
+                onDownloadReport={handleDownloadReport}
                 onReprocessFile={handleReprocessFile}
               />
             )}

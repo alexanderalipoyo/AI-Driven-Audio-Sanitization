@@ -2,7 +2,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { useState } from 'react';
-import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, RotateCcw, FileText } from 'lucide-react';
 import type { AudioFile } from '../App';
 import { WordSafetyReport } from './WordSafetyReport';
 import { VideoPreview } from './VideoPreview';
@@ -25,6 +25,7 @@ interface ProcessingQueueProps {
   onClearCompleted: () => void;
   onToggleExpanded: (id: string) => void;
   onDownloadFile: (id: string) => void;
+  onDownloadReport: (id: string) => void | Promise<void>;
   onReprocessFile: (id: string) => void;
 }
 
@@ -35,6 +36,7 @@ export function ProcessingQueue({
   onClearCompleted,
   onToggleExpanded,
   onDownloadFile,
+  onDownloadReport,
   onReprocessFile,
 }: ProcessingQueueProps) {
   const [sectionState, setSectionState] = useState<Record<string, boolean>>({});
@@ -358,6 +360,15 @@ export function ProcessingQueue({
                               className="border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-400/50 hover:bg-emerald-500/20 hover:text-emerald-100"
                             >
                               <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void onDownloadReport(file.id)}
+                              className="border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:border-indigo-400/50 hover:bg-indigo-500/20 hover:text-indigo-100"
+                              title="Download PDF report"
+                            >
+                              <FileText className="w-4 h-4" />
                             </Button>
                           </>
                         )}
