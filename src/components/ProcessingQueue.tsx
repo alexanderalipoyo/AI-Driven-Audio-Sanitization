@@ -7,6 +7,16 @@ import type { AudioFile } from '../App';
 import { WordSafetyReport } from './WordSafetyReport';
 import { VideoPreview } from './VideoPreview';
 import { ProfanityGraphs } from './ProfanityGraphs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 
 interface ProcessingQueueProps {
   files: AudioFile[];
@@ -28,6 +38,8 @@ export function ProcessingQueue({
   onReprocessFile,
 }: ProcessingQueueProps) {
   const [sectionState, setSectionState] = useState<Record<string, boolean>>({});
+  const [filePendingRemoval, setFilePendingRemoval] = useState<AudioFile | null>(null);
+  const [clearCompletedPending, setClearCompletedPending] = useState(false);
   const hasPendingFiles = files.some(f => f.status === 'pending');
   const hasCompletedFiles = files.some(f => f.status === 'completed');
   const isProcessing = files.some(f => f.status === 'processing');
@@ -185,9 +197,43 @@ export function ProcessingQueue({
     );
   };
 
+  const handleRemoveClick = (file: AudioFile) => {
+    if (file.status === 'completed') {
+      setClearCompletedPending(false);
+      setFilePendingRemoval(file);
+      return;
+    }
+
+    onRemoveFile(file.id);
+  };
+
+  const handleClearCompletedClick = () => {
+    setFilePendingRemoval(null);
+    setClearCompletedPending(true);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setFilePendingRemoval(null);
+      setClearCompletedPending(false);
+    }
+  };
+
+  const handleDialogConfirm = () => {
+    if (filePendingRemoval) {
+      onRemoveFile(filePendingRemoval.id);
+    } else if (clearCompletedPending) {
+      onClearCompleted();
+    }
+
+    setFilePendingRemoval(null);
+    setClearCompletedPending(false);
+  };
+
   return (
-    <Card className="bg-slate-900/50 border-slate-800">
-      <div className="p-6">
+    <>
+      <Card className="bg-slate-900/50 border-slate-800">
+        <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-slate-100">Processing Queue ({files.length})</h3>
           <div className="flex gap-2">
@@ -195,7 +241,7 @@ export function ProcessingQueue({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onClearCompleted}
+                onClick={handleClearCompletedClick}
                 className="border-amber-500/30 bg-amber-500/10 text-amber-200 hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-100"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -294,7 +340,7 @@ export function ProcessingQueue({
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => onRemoveFile(file.id)}
+                          onClick={() => handleRemoveClick(file)}
                           className="text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                         >
                           <X className="w-4 h-4" />
@@ -368,7 +414,39 @@ export function ProcessingQueue({
             </div>
           ))}
         </div>
-      </div>
-    </Card>
+        </div>
+      </Card>
+
+      <AlertDialog
+        open={filePendingRemoval !== null || clearCompletedPending}
+        onOpenChange={handleDialogOpenChange}
+      >
+        <AlertDialogContent className="border-slate-800 bg-slate-950 text-slate-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {clearCompletedPending ? 'Clear all completed items?' : 'Delete completed item?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              {clearCompletedPending
+                ? 'This will remove every completed result from the processing queue. Processed files, previews, and analysis panels for those completed items will no longer be available in this list.'
+                : filePendingRemoval
+                  ? `This will remove ${filePendingRemoval.name} from the processing queue, including its completed preview and analysis details shown in the queue.`
+                  : 'This will remove the completed item from the processing queue and hide its preview and analysis details from this list.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDialogConfirm}
+              className="bg-red-600 text-white hover:bg-red-500"
+            >
+              {clearCompletedPending ? 'Clear Completed' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
