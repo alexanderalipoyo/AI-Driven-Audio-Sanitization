@@ -489,7 +489,6 @@ def extract_playlist_entries(media_url: str) -> tuple[str | None, list[dict[str,
 def download_media_from_url(
     job_id: str,
     media_url: str,
-    audio_only: bool,
 ) -> tuple[Path, str, str]:
     if yt_dlp is None:
         raise RuntimeError("yt-dlp is not installed. Run pip install -r requirements.txt.")
@@ -502,6 +501,7 @@ def download_media_from_url(
         preview_metadata = preview_downloader.extract_info(media_url, download=False)
 
     media_title = str(preview_metadata.get("title") or job.filename).strip() or job.filename
+    has_video_stream = str(preview_metadata.get("vcodec") or "none").lower() != "none"
     media_id = build_safe_filename_token(str(preview_metadata.get("id") or job_id), job_id[:12])
     safe_stem = build_safe_filename_stem(media_title, fallback_stem, max_length=48)
     output_template = str(job_dir / f"{safe_stem}-{media_id}.%(ext)s")
@@ -513,24 +513,16 @@ def download_media_from_url(
         "outtmpl": output_template,
     }
 
-    if audio_only:
+    if has_video_stream:
         ydl_options.update(
             {
-                "format": "bestaudio/best",
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }
-                ],
+                "format": "best[acodec!=none][vcodec!=none]/bestvideo+bestaudio/best",
             }
         )
     else:
         ydl_options.update(
             {
-                "format": "bestvideo+bestaudio/best",
-                "merge_output_format": "mp4",
+                "format": "bestaudio/best",
             }
         )
 
@@ -984,10 +976,10 @@ def process_job(job_id: str) -> None:
         update_job(job_id, status="error", error=str(exc), progress=100.0)
 
 
-def process_url_job(job_id: str, media_url: str, audio_only: bool) -> None:
+def process_url_job(job_id: str, media_url: str) -> None:
     try:
         update_job(job_id, status="processing", progress=8.0, error=None)
-        input_path, input_mime_type, media_title = download_media_from_url(job_id, media_url, audio_only)
+        input_path, input_mime_type, media_title = download_media_from_url(job_id, media_url)
         update_job(
             job_id,
             filename=input_path.name,
@@ -1135,7 +1127,7 @@ def start_url_processing(request: UrlProcessingRequest) -> dict[str, Any]:
 
         threading.Thread(
             target=process_url_job,
-            args=(job_id, queued_item["url"], request.audio_only),
+            args=(job_id, queued_item["url"]),
             daemon=True,
         ).start()
 

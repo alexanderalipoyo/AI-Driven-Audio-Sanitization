@@ -310,19 +310,19 @@ export function ProcessingQueue({
                       )
                     )}
 
-                    {/* Uncensored Video Preview */}
+                    {/* Uncensored Media Preview */}
                     {renderAnalysisSection(
                       file.id,
                       'uncensored-video-preview',
-                      'Uncensored Video Preview',
+                      'Uncensored Media Preview',
                       <VideoPreview file={file} isCensored={false} showHeader={false} />,
                     )}
 
-                    {/* Censored Video Preview */}
+                    {/* Censored Media Preview */}
                     {renderAnalysisSection(
                       file.id,
                       'censored-video-preview',
-                      'Censored Video Preview',
+                      'Censored Media Preview',
                       <VideoPreview file={file} isCensored={true} showHeader={false} />,
                     )}
 

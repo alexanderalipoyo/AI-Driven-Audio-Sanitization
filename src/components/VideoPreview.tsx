@@ -79,7 +79,7 @@ export function VideoPreview({ file, isCensored = false, showHeader = true }: Vi
           {isCensored ? (
             <>
               <EyeOff className="w-4 h-4 text-violet-400" />
-              <h4 className="text-slate-200 text-sm font-medium">Censored Video Preview</h4>
+              <h4 className="text-slate-200 text-sm font-medium">Censored Media Preview</h4>
               <span className="ml-auto text-xs px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 Safe for viewing
               </span>
@@ -87,7 +87,7 @@ export function VideoPreview({ file, isCensored = false, showHeader = true }: Vi
           ) : (
             <>
               <Eye className="w-4 h-4 text-violet-400" />
-              <h4 className="text-slate-200 text-sm font-medium">Uncensored Video Preview</h4>
+              <h4 className="text-slate-200 text-sm font-medium">Uncensored Media Preview</h4>
               <span className="ml-auto text-xs px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 Original content
               </span>
