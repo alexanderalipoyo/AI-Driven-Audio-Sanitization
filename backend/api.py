@@ -951,6 +951,7 @@ def run_processing_pipeline(job_id: str) -> None:
     )
 
     result = {
+        "source_title": (job.result or {}).get("source_title") or job.filename,
         "transcription": build_transcription_payload(transcription_result),
         "safety_report": classified_words,
         "source_url": f"/api/jobs/{job_id}/original",
