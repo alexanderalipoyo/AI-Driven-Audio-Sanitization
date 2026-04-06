@@ -1,7 +1,7 @@
 
-# AI-Driven Video Sanitization
+# AI-Driven Audio Sanitization
 
-AI-Driven Video Sanitization is a Vite + React frontend with a FastAPI backend for detecting profane words in audio or video, generating word-level timestamps with Whisper, and exporting sanitized media with censored audio.
+AI-Driven Audio Sanitization is a Vite + React frontend with a FastAPI backend for detecting profane words in audio or video, generating word-level timestamps with Whisper, and exporting sanitized media with censored audio.
 
 It supports both local file uploads and remote media import through supported URLs.
 

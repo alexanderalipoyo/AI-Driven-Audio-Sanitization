@@ -1,1 +1,1 @@
-"""Backend package for the AI-driven video sanitization API."""
+"""Backend package for the AI-driven audio sanitization API."""

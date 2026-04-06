@@ -80,7 +80,7 @@ if FFMPEG_BINARY:
 if FFPROBE_BINARY:
     AudioSegment.ffprobe = FFPROBE_BINARY
 
-app = FastAPI(title="AI-Driven Video Sanitization API")
+app = FastAPI(title="AI-Driven Audio Sanitization API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

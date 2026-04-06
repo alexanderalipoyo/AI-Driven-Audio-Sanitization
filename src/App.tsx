@@ -476,7 +476,7 @@ export default function App() {
                 <AudioWaveform className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-slate-100">AI-Driven Video Sanitization</h1>
+                <h1 className="text-slate-100">AI-Driven Audio Sanitization</h1>
                 <p className="text-sm text-slate-400">
                   Combining OpenAI Whisper with VBW Blacklisting
                 </p>
