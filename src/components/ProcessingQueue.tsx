@@ -2,11 +2,12 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { useState } from 'react';
-import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, RotateCcw, FileText } from 'lucide-react';
+import { Play, X, Download, Trash2, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, RotateCcw, FileText, FileArchive } from 'lucide-react';
 import type { AudioFile } from '../App';
 import { WordSafetyReport } from './WordSafetyReport';
 import { VideoPreview } from './VideoPreview';
 import { ProfanityGraphs } from './ProfanityGraphs';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ interface ProcessingQueueProps {
   onToggleExpanded: (id: string) => void;
   onDownloadFile: (id: string) => void;
   onDownloadReport: (id: string) => void | Promise<void>;
+  onDownloadBundle: (id: string) => void | Promise<void>;
   onReprocessFile: (id: string) => void;
 }
 
@@ -37,6 +39,7 @@ export function ProcessingQueue({
   onToggleExpanded,
   onDownloadFile,
   onDownloadReport,
+  onDownloadBundle,
   onReprocessFile,
 }: ProcessingQueueProps) {
   const [sectionState, setSectionState] = useState<Record<string, boolean>>({});
@@ -327,11 +330,6 @@ export function ProcessingQueue({
                             {buildMetadataLabel(file)}
                           </p>
                         )}
-                        {file.status === 'completed' && file.completedAt && (
-                          <p className="text-xs text-emerald-400/80 mt-1">
-                            Completed {formatCompletedAt(file.completedAt)}
-                          </p>
-                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -339,36 +337,11 @@ export function ProcessingQueue({
                           <>
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => onReprocessFile(file.id)}
-                              className="border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/50 hover:bg-cyan-500/20 hover:text-cyan-100"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
                               variant="ghost"
                               onClick={() => onToggleExpanded(file.id)}
                               className="border-slate-700 text-slate-300 hover:bg-slate-800"
                             >
                               {file.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onDownloadFile(file.id)}
-                              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-400/50 hover:bg-emerald-500/20 hover:text-emerald-100"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void onDownloadReport(file.id)}
-                              className="border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:border-indigo-400/50 hover:bg-indigo-500/20 hover:text-indigo-100"
-                              title="Download PDF report"
-                            >
-                              <FileText className="w-4 h-4" />
                             </Button>
                           </>
                         )}
@@ -399,6 +372,59 @@ export function ProcessingQueue({
 
                     {file.errorMessage && (
                       <p className="text-xs text-red-400 mt-2">{file.errorMessage}</p>
+                    )}
+
+                    {file.status === 'completed' && (
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-emerald-400/80">
+                          Completed {formatCompletedAt(file.completedAt)}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onReprocessFile(file.id)}
+                            className="border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/50 hover:bg-cyan-500/20 hover:text-cyan-100"
+                            title="Reprocess"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onDownloadFile(file.id)}
+                            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:border-emerald-400/50 hover:bg-emerald-500/20 hover:text-emerald-100"
+                            title="Download video"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onDownloadReport(file.id)}
+                            className="border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:border-indigo-400/50 hover:bg-indigo-500/20 hover:text-indigo-100"
+                            title="Download PDF report"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void onDownloadBundle(file.id)}
+                                className="border-amber-500/30 bg-amber-500/10 text-amber-200 hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-100"
+                                title="Download ZIP bundle"
+                              >
+                                <FileArchive className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={8}>
+                              Download ZIP: PDF report + uncensored + censored media
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
