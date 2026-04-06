@@ -246,9 +246,12 @@ export function ProcessingQueue({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
-                        <p className="break-all text-slate-200">{file.url || file.name}</p>
+                        <p className="break-all text-slate-200">{file.name}</p>
+                        {file.url && file.url !== file.name && (
+                          <p className="mt-1 break-all text-xs text-slate-500">{file.url}</p>
+                        )}
                         {buildMetadataLabel(file) && (
-                          <p className="text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-slate-500">
                             {buildMetadataLabel(file)}
                           </p>
                         )}
