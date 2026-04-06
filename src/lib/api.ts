@@ -30,6 +30,7 @@ export interface UrlProcessingStartResponse {
 }
 
 export interface ProcessingJobResult {
+  source_title?: string;
   transcription: {
     segments: Array<{
       words: Array<{

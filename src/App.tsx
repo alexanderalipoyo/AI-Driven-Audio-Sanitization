@@ -179,6 +179,7 @@ export default function App() {
       const job = await fetchJobStatus(jobId);
       if (job.status === "completed" && job.result) {
         updateFile(fileId, {
+          name: job.result.source_title || job.result.source_filename || job.result.output_filename,
           status: "completed",
           progress: 100,
           completedAt: Date.now(),
@@ -211,6 +212,7 @@ export default function App() {
 
           return {
             ...file,
+            name: job.result?.source_title || file.name,
             status: "processing",
             progress: nextProgress,
             processingStartedAt: file.processingStartedAt ?? Date.now(),
