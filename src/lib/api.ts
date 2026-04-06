@@ -53,6 +53,7 @@ export interface ProcessingJobResult {
   source_url: string;
   source_filename: string;
   source_mime_type: string;
+  source_size: number;
   output_url: string;
   output_filename: string;
   output_mime_type: string;

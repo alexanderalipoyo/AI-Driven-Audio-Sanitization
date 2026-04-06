@@ -185,6 +185,7 @@ export default function App() {
       if (job.status === "completed" && job.result) {
         updateFile(fileId, {
           name: job.result.source_title || job.result.source_filename || job.result.output_filename,
+          size: job.result.source_size || 0,
           status: "completed",
           progress: 100,
           completedAt: Date.now(),

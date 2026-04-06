@@ -972,6 +972,7 @@ def run_processing_pipeline(job_id: str) -> None:
         "source_url": f"/api/jobs/{job_id}/original",
         "source_filename": job.input_path.name,
         "source_mime_type": job.input_mime_type,
+        "source_size": job.input_path.stat().st_size if job.input_path.exists() else 0,
         "output_url": f"/api/jobs/{job_id}/download",
         "output_filename": output_path.name,
         "output_mime_type": output_mime_type,
