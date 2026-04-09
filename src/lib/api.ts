@@ -6,7 +6,7 @@ const apiBaseUrl = importMeta.env?.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
 export interface ProcessingApiSettings {
   format: string;
-  sensorType: "beep" | "silence" | "faaa";
+  sensorType: "beep" | "silence" | "faaa" | "mac-quack" | "bruh";
   audioOnly?: boolean;
   audioFormat?: string;
 }

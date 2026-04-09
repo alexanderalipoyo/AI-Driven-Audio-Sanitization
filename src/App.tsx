@@ -69,7 +69,7 @@ export interface AudioFile {
 
 export interface ConversionSettings {
   format: string;
-  sensorType: "beep" | "silence" | "faaa";
+  sensorType: "beep" | "silence" | "faaa" | "mac-quack" | "bruh";
   audioOnly: boolean;
   audioFormat: string;
   normalize: boolean;

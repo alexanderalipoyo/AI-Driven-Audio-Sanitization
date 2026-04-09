@@ -34,6 +34,8 @@ const sensorTypes = [
   { value: 'beep', label: 'Beep', description: 'Replace with beep sound' },
   { value: 'silence', label: 'Silence', description: 'Mute censored content' },
   { value: 'faaa', label: 'Faaa', description: 'Use backend_data/censor_sounds/faaa.mp3' },
+  { value: 'mac-quack', label: 'Mac Quack', description: 'Use backend_data/censor_sounds/mac-quack.mp3' },
+  { value: 'bruh', label: 'Bruh', description: 'Use backend_data/censor_sounds/bruh.mp3' },
 ];
 
 export function FormatSelector({ settings, onSettingsChange, showAudioOnly = false }: FormatSelectorProps) {
@@ -68,8 +70,8 @@ export function FormatSelector({ settings, onSettingsChange, showAudioOnly = fal
         setIsPlayingPreview(false);
         audioContext.close();
       }, 500);
-    } else if (settings.sensorType === 'faaa') {
-      audioRef.current = new Audio(resolveCensorSoundUrl('faaa'));
+    } else if (settings.sensorType !== 'silence') {
+      audioRef.current = new Audio(resolveCensorSoundUrl(settings.sensorType));
       audioRef.current.play().catch(() => {
         setIsPlayingPreview(false);
       });
@@ -183,7 +185,7 @@ export function FormatSelector({ settings, onSettingsChange, showAudioOnly = fal
             <Label className="text-slate-300">Sensor Type</Label>
             <Select
               value={settings.sensorType}
-              onValueChange={(value: "beep" | "silence" | "faaa") => onSettingsChange({ ...settings, sensorType: value })}
+              onValueChange={(value: "beep" | "silence" | "faaa" | "mac-quack" | "bruh") => onSettingsChange({ ...settings, sensorType: value })}
             >
               <SelectTrigger className="bg-slate-950 border-slate-700 text-slate-200">
                 <SelectValue placeholder="Select sensor type">

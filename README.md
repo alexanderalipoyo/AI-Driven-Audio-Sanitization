@@ -229,11 +229,15 @@ Built-in censor types:
 - `beep`
 - `silence`
 - `faaa`
+- `mac-quack`
+- `bruh`
 
-For `faaa`, the backend expects this file:
+For custom sound options, the backend expects these files:
 
 ```text
 backend_data/censor_sounds/faaa.mp3
+backend_data/censor_sounds/mac-quack.mp3
+backend_data/censor_sounds/bruh.mp3
 ```
 
 ## Profanity dictionaries

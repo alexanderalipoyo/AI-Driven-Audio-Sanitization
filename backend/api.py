@@ -69,6 +69,8 @@ SUPPORTED_AUDIO_OUTPUT_FORMATS = {"mp3", "wav", "flac", "ogg", "aac", "m4a"}
 PUNCTUATION_TO_STRIP = " \t\r\n.,!?;:\"'`()[]{}<>-_"
 CENSOR_SOUND_FILES = {
     "faaa": SOUND_DIR / "faaa.mp3",
+    "mac-quack": SOUND_DIR / "mac-quack.mp3",
+    "bruh": SOUND_DIR / "bruh.mp3",
 }
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
