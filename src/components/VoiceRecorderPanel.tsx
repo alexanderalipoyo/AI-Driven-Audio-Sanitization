@@ -17,13 +17,14 @@ import { toast } from "sonner";
 
 interface VoiceRecorderPanelProps {
   onRecordingReady: (file: File) => void;
+  audioFormat?: string;
 }
 
 const NEVER_ALLOW_KEY = "voice-record-mic-choice";
 
 type PermissionChoice = "undecided" | "allow-session" | "never";
 
-export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps) {
+export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: VoiceRecorderPanelProps) {
   const MIN_TRIM_GAP_SECONDS = 0.1;
 
   const [permissionChoice, setPermissionChoice] = useState<PermissionChoice>(() => {
@@ -80,6 +81,28 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
     }
     return "";
   }, []);
+
+  const audioFormatMap: Record<string, { extension: string; mimeType: string }> = {
+    mp3: { extension: "mp3", mimeType: "audio/mpeg" },
+    wav: { extension: "wav", mimeType: "audio/wav" },
+    flac: { extension: "flac", mimeType: "audio/flac" },
+    ogg: { extension: "ogg", mimeType: "audio/ogg" },
+    aac: { extension: "aac", mimeType: "audio/aac" },
+    m4a: { extension: "m4a", mimeType: "audio/mp4" },
+  };
+
+  const selectedAudioFormat = audioFormatMap[audioFormat] || audioFormatMap.mp3;
+
+  const formatRecordingFilenameDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+    return `${year}-${month}-${day}-${hours}:${minutes}:${seconds}`;
+  };
 
   const formatRecordingTime = (durationMs: number) => {
     const totalSeconds = Math.floor(durationMs / 1000);
@@ -555,10 +578,13 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
         clearRecordingTimer();
         setRecordingElapsedMs(accumulatedDurationMsRef.current);
 
-        const type = recordingMimeType || "audio/webm";
-        const extension = type.includes("mp4") ? "m4a" : "webm";
-        const blob = new Blob(chunksRef.current, { type });
-        const file = new File([blob], `voice-recording-${Date.now()}.${extension}`, { type });
+        const recordingType = recordingMimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type: recordingType });
+        const file = new File(
+          [blob],
+          `voice-recording-${formatRecordingFilenameDate()}.${selectedAudioFormat.extension}`,
+          { type: selectedAudioFormat.mimeType },
+        );
 
         if (previewUrl) {
           URL.revokeObjectURL(previewUrl);
@@ -848,9 +874,11 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
       }
 
       const wavBlob = encodeWav(trimmed);
-      const trimmedFile = new File([wavBlob], `voice-recording-${Date.now()}-trimmed.wav`, {
-        type: "audio/wav",
-      });
+      const trimmedFile = new File(
+        [wavBlob],
+        `voice-recording-${formatRecordingFilenameDate()}.${selectedAudioFormat.extension}`,
+        { type: selectedAudioFormat.mimeType },
+      );
 
       onRecordingReady(trimmedFile);
       toast.success("Trimmed recording saved to queue");
@@ -863,8 +891,8 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Card className={`${previewUrl ? "space-y-1" : "space-y-5"} border-slate-800 bg-slate-900/70 p-6 lg:col-span-2`}>
+    <div>
+      <Card className={`${previewUrl ? "space-y-1" : "space-y-5"} border-slate-800 bg-slate-900/70 p-6`}>
         <div className={`${previewUrl ? "space-y-0" : "space-y-1"}`}>
           <h3 className="text-slate-100">Voice record</h3>
           <p className={`text-sm text-slate-400 ${previewUrl ? "mb-0" : ""}`}>
@@ -1096,16 +1124,6 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
             </AlertDialog>
           </>
         )}
-      </Card>
-
-      <Card className="space-y-3 border-slate-800 bg-slate-900/70 p-6">
-        <h4 className="text-slate-100">Permission options</h4>
-        <p className="text-sm text-slate-400">
-          Allow this time requests browser access once for recording.
-        </p>
-        <p className="text-sm text-slate-400">
-          Never allow saves your choice locally and blocks recording in this app.
-        </p>
       </Card>
     </div>
   );

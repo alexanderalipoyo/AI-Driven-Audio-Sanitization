@@ -177,6 +177,13 @@ export default function App() {
     handleFilesAdded([recordedFile]);
   };
 
+  const handleVoiceRecordSettingsChange = (nextSettings: ConversionSettings) => {
+    setSettings({
+      ...nextSettings,
+      audioOnly: true,
+    });
+  };
+
   const updateFile = (id: string, changes: Partial<AudioFile>) => {
     setFiles((prev) =>
       prev.map((file) =>
@@ -730,7 +737,23 @@ export default function App() {
               </TabsContent>
 
               <TabsContent value="voice-record">
-                <VoiceRecorderPanel onRecordingReady={handleVoiceRecordingAdded} />
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <div className="lg:col-span-2">
+                    <VoiceRecorderPanel
+                      onRecordingReady={handleVoiceRecordingAdded}
+                      audioFormat={settings.audioFormat}
+                    />
+                  </div>
+
+                  <div className="space-y-6">
+                    <FormatSelector
+                      settings={{ ...settings, audioOnly: true }}
+                      onSettingsChange={handleVoiceRecordSettingsChange}
+                      hideVideoFormat
+                      forceAudioFormat
+                    />
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
 
