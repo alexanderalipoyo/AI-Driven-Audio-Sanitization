@@ -476,7 +476,12 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                     />
 
                     <div className="flex flex-wrap items-center justify-center gap-3">
-                      <Button type="button" onClick={togglePauseRecording} variant="outline">
+                      <Button
+                        type="button"
+                        onClick={togglePauseRecording}
+                        variant="outline"
+                        className="border-cyan-400/70 bg-cyan-500/10 font-semibold text-cyan-100 hover:bg-cyan-500/20 hover:text-white"
+                      >
                         {isPaused ? (
                           <>
                             <Play className="mr-2 h-4 w-4" />
@@ -490,9 +495,16 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                         )}
                       </Button>
 
-                      <Button type="button" onClick={stopRecording} className="bg-rose-600 hover:bg-rose-500">
+                      <Button
+                        type="button"
+                        onClick={stopRecording}
+                        className="bg-rose-600 font-semibold text-white shadow-sm shadow-rose-900/50 hover:bg-rose-500"
+                      >
                         <Square className="mr-2 h-4 w-4" />
-                        Stop ({formatRecordingTime(recordingElapsedMs)})
+                        Stop
+                        <span className="ml-2 rounded-full bg-rose-950/55 px-2 py-0.5 font-mono text-rose-100">
+                          {formatRecordingTime(recordingElapsedMs)}
+                        </span>
                       </Button>
                     </div>
                   </>
