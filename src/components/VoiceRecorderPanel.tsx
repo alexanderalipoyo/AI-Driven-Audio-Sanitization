@@ -90,6 +90,11 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
       return;
     }
 
+    if (permissionChoice !== "allow-session") {
+      toast.error("Allow microphone access first.");
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setNoMicrophoneFound(true);
       return;
@@ -146,6 +151,33 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
         toast.error("Microphone permission was denied by the browser.");
       } else {
         toast.error("Unable to start recording.");
+      }
+    }
+  };
+
+  const allowMicrophoneForSession = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setNoMicrophoneFound(true);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setPermissionChoice("allow-session");
+      toast.success("Microphone access allowed for this session.");
+    } catch (error) {
+      const err = error as DOMException;
+
+      if (err?.name === "NotFoundError") {
+        setNoMicrophoneFound(true);
+        return;
+      }
+
+      if (err?.name === "NotAllowedError") {
+        toast.error("Microphone permission was denied by the browser.");
+      } else {
+        toast.error("Unable to request microphone permission.");
       }
     }
   };
@@ -207,9 +239,9 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
             {permissionChoice === "undecided" && (
               <Alert className="border-cyan-500/40 bg-cyan-950/20 text-cyan-100">
                 <Mic className="h-4 w-4" />
-                <AlertTitle>Microphone permission</AlertTitle>
-                <AlertDescription className="mt-2 flex flex-wrap gap-2">
-                  <Button type="button" onClick={startRecording} className="bg-cyan-600 hover:bg-cyan-500">
+                <AlertTitle className="text-center">Microphone permission</AlertTitle>
+                <AlertDescription className="mt-2 flex flex-wrap justify-center gap-2 text-center">
+                  <Button type="button" onClick={allowMicrophoneForSession} className="bg-cyan-600 hover:bg-cyan-500">
                     Allow this time
                   </Button>
                   <Button type="button" variant="outline" onClick={setNeverAllow}>
@@ -227,12 +259,17 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                   You selected "Never allow" for this site session.
                 </AlertDescription>
               </Alert>
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
+            ) : permissionChoice === "allow-session" ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 {!isRecording ? (
-                  <Button type="button" onClick={startRecording} className="bg-violet-600 hover:bg-violet-500">
-                    <Mic className="mr-2 h-4 w-4" />
-                    Start recording
+                  <Button
+                    type="button"
+                    onClick={startRecording}
+                    className="h-14 w-14 rounded-full bg-violet-600 p-0 hover:bg-violet-500"
+                    aria-label="Start recording"
+                    title="Start recording"
+                  >
+                    <Mic className="h-6 w-6" />
                   </Button>
                 ) : (
                   <Button type="button" onClick={stopRecording} className="bg-rose-600 hover:bg-rose-500">
@@ -240,12 +277,8 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                     Stop recording
                   </Button>
                 )}
-
-                <Button type="button" variant="outline" onClick={setNeverAllow}>
-                  Never allow
-                </Button>
               </div>
-            )}
+            ) : null}
 
             {previewUrl && (
               <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
