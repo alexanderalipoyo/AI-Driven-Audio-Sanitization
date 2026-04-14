@@ -3,6 +3,16 @@ import { Mic, MicOff, Pause, Play, Square, Upload, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { toast } from "sonner";
 
 interface VoiceRecorderPanelProps {
@@ -36,6 +46,7 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [previewSamples, setPreviewSamples] = useState<number[]>([]);
   const [isSavingPreview, setIsSavingPreview] = useState(false);
+  const [isClosePreviewDialogOpen, setIsClosePreviewDialogOpen] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -379,20 +390,25 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
       setPreviewDurationSec(duration);
       setTrimStartSec(0);
       setTrimEndSec(duration);
-      setPlayheadSec(duration > 0 ? duration / 2 : 0);
+      setPlayheadSec(0);
+      audio.currentTime = 0;
     };
 
     const handleTimeUpdate = () => {
       if (audio.currentTime >= trimEndSec) {
         audio.pause();
         setIsPreviewPlaying(false);
-        audio.currentTime = trimEndSec;
+        audio.currentTime = 0;
+        setPlayheadSec(0);
+        return;
       }
       setPlayheadSec(audio.currentTime);
     };
 
     const handleEnded = () => {
       setIsPreviewPlaying(false);
+      audio.currentTime = 0;
+      setPlayheadSec(0);
     };
 
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
@@ -684,6 +700,11 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
     setRecordedFile(null);
   };
 
+  const confirmClosePreview = () => {
+    clearRecording();
+    setIsClosePreviewDialogOpen(false);
+  };
+
   const movePlayheadFromClientX = (clientX: number) => {
     if (!previewTimelineRef.current || previewDurationSec <= 0) {
       return;
@@ -763,12 +784,27 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
       return;
     }
 
-    const startAt = clampTime(playheadSec, trimStartSec, trimEndSec);
-    audio.currentTime = startAt;
+    if (audio.readyState < 1) {
+      await new Promise<void>((resolve) => {
+        const onReady = () => {
+          audio.removeEventListener("loadedmetadata", onReady);
+          resolve();
+        };
+        audio.addEventListener("loadedmetadata", onReady);
+        audio.load();
+      });
+    }
+
+    const safeStart = trimEndSec - trimStartSec <= MIN_TRIM_GAP_SECONDS
+      ? trimStartSec
+      : clampTime(playheadSec, trimStartSec, trimEndSec - 0.02);
+    audio.currentTime = safeStart;
+    audio.volume = 1;
 
     try {
       await audio.play();
       setIsPreviewPlaying(true);
+      setPlayheadSec(audio.currentTime);
     } catch {
       toast.error("Unable to play recording preview.");
     }
@@ -831,7 +867,7 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
       <Card className={`${previewUrl ? "space-y-1" : "space-y-5"} border-slate-800 bg-slate-900/70 p-6 lg:col-span-2`}>
         <div className={`${previewUrl ? "space-y-0" : "space-y-1"}`}>
           <h3 className="text-slate-100">Voice record</h3>
-          <p className={`text-sm text-slate-400 ${previewUrl ? "mb-0 hidden" : ""}`}>
+          <p className={`text-sm text-slate-400 ${previewUrl ? "mb-0" : ""}`}>
             Record straight from your microphone and send the clip to the sanitizer queue.
           </p>
         </div>
@@ -949,7 +985,7 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                   <p className="text-sm font-medium text-cyan-100">Recording preview</p>
                   <button
                     type="button"
-                    onClick={clearRecording}
+                    onClick={() => setIsClosePreviewDialogOpen(true)}
                     className="rounded-full p-1.5 text-slate-300 hover:bg-slate-800/60 hover:text-white"
                     aria-label="Close preview"
                     title="Close preview"
@@ -971,18 +1007,24 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                     {previewDurationSec > 0 && (
                       <>
                         <div
-                          className="absolute top-0 z-20 h-full w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                          className="group absolute top-0 z-20 h-full w-4 -translate-x-1/2 cursor-ew-resize touch-none"
                           style={{ left: `${timeToPercent(trimStartSec)}%` }}
                           onPointerDown={(event) => startDraggingHandle(event, "start")}
                         >
-                          <div className="mx-auto h-full w-[3px] bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
+                          <div className="mx-auto h-full w-[5px] rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.95)]" />
+                          <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900/90 px-2 py-0.5 text-[11px] text-cyan-100 opacity-0 transition-opacity group-hover:opacity-100">
+                            Start {formatPreviewTime(trimStartSec)}
+                          </div>
                         </div>
                         <div
-                          className="absolute top-0 z-20 h-full w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                          className="group absolute top-0 z-20 h-full w-4 -translate-x-1/2 cursor-ew-resize touch-none"
                           style={{ left: `${timeToPercent(trimEndSec)}%` }}
                           onPointerDown={(event) => startDraggingHandle(event, "end")}
                         >
-                          <div className="mx-auto h-full w-[3px] bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
+                          <div className="mx-auto h-full w-[5px] rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.95)]" />
+                          <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900/90 px-2 py-0.5 text-[11px] text-cyan-100 opacity-0 transition-opacity group-hover:opacity-100">
+                            End {formatPreviewTime(trimEndSec)}
+                          </div>
                         </div>
 
                         <div
@@ -1012,9 +1054,9 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                   <Button
                     type="button"
                     onClick={togglePreviewPlayback}
-                    className="min-w-24 rounded-full bg-slate-900/65 text-white hover:bg-slate-900"
+                    className="min-w-32 rounded-full border border-cyan-300/40 bg-gradient-to-r from-cyan-500/25 to-sky-500/25 font-semibold text-cyan-50 shadow-[0_6px_20px_rgba(34,211,238,0.28)] hover:from-cyan-400/35 hover:to-sky-400/35"
                   >
-                    <Play className="mr-2 h-4 w-4" />
+                    {isPreviewPlaying ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                     {isPreviewPlaying ? "Pause" : "Play"}
                   </Button>
 
@@ -1022,7 +1064,7 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                     type="button"
                     onClick={addRecordingToQueue}
                     disabled={isSavingPreview}
-                    className="min-w-28 rounded-full bg-emerald-100 text-slate-900 hover:bg-emerald-200"
+                    className="min-w-32 rounded-full bg-gradient-to-r from-emerald-300 to-teal-300 font-semibold text-slate-900 shadow-[0_8px_24px_rgba(16,185,129,0.35)] hover:from-emerald-200 hover:to-teal-200 disabled:opacity-70"
                   >
                     <Upload className="mr-2 h-4 w-4" />
                     {isSavingPreview ? "Saving..." : "Save"}
@@ -1030,6 +1072,28 @@ export function VoiceRecorderPanel({ onRecordingReady }: VoiceRecorderPanelProps
                 </div>
               </div>
             )}
+
+            <AlertDialog open={isClosePreviewDialogOpen} onOpenChange={setIsClosePreviewDialogOpen}>
+              <AlertDialogContent className="border-slate-800 bg-slate-950 text-slate-100">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Close recording preview?</AlertDialogTitle>
+                  <AlertDialogDescription className="text-slate-400">
+                    This will discard the current preview and return to the record button.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white">
+                    No, keep preview
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={confirmClosePreview}
+                    className="bg-rose-600 text-white hover:bg-rose-500"
+                  >
+                    Yes, close preview
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </Card>
