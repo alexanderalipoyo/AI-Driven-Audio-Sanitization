@@ -93,6 +93,25 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
 
   const selectedAudioFormat = audioFormatMap[audioFormat] || audioFormatMap.mp3;
 
+  const extensionFromMimeType = (mimeType: string) => {
+    if (mimeType.includes("webm")) {
+      return "webm";
+    }
+    if (mimeType.includes("ogg")) {
+      return "ogg";
+    }
+    if (mimeType.includes("mp4")) {
+      return "m4a";
+    }
+    if (mimeType.includes("mpeg")) {
+      return "mp3";
+    }
+    if (mimeType.includes("wav")) {
+      return "wav";
+    }
+    return "webm";
+  };
+
   const formatRecordingFilenameDate = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -582,8 +601,8 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
         const blob = new Blob(chunksRef.current, { type: recordingType });
         const file = new File(
           [blob],
-          `voice-recording-${formatRecordingFilenameDate()}.${selectedAudioFormat.extension}`,
-          { type: selectedAudioFormat.mimeType },
+          `voice-recording-${formatRecordingFilenameDate()}.${extensionFromMimeType(recordingType)}`,
+          { type: recordingType },
         );
 
         if (previewUrl) {
@@ -876,8 +895,8 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
       const wavBlob = encodeWav(trimmed);
       const trimmedFile = new File(
         [wavBlob],
-        `voice-recording-${formatRecordingFilenameDate()}.${selectedAudioFormat.extension}`,
-        { type: selectedAudioFormat.mimeType },
+        `voice-recording-${formatRecordingFilenameDate()}.wav`,
+        { type: "audio/wav" },
       );
 
       onRecordingReady(trimmedFile);
