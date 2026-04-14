@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
 import { Mic, MicOff, Pause, Play, Square, Upload, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -62,6 +64,9 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
   const previewTimelineRef = useRef<HTMLDivElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewDragRef = useRef<"start" | "end" | null>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+  const ffmpegIsLoadedRef = useRef(false);
+  const ffmpegLoadPromiseRef = useRef<Promise<void> | null>(null);
   const accumulatedDurationMsRef = useRef(0);
   const activeSegmentStartMsRef = useRef<number | null>(null);
 
@@ -93,6 +98,15 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
 
   const selectedAudioFormat = audioFormatMap[audioFormat] || audioFormatMap.mp3;
 
+  const ffmpegArgsByFormat: Record<string, string[]> = {
+    mp3: ["-c:a", "libmp3lame", "-b:a", "192k"],
+    wav: ["-c:a", "pcm_s16le"],
+    flac: ["-c:a", "flac"],
+    ogg: ["-c:a", "libvorbis", "-q:a", "5"],
+    aac: ["-c:a", "aac", "-b:a", "192k"],
+    m4a: ["-c:a", "aac", "-b:a", "192k"],
+  };
+
   const extensionFromMimeType = (mimeType: string) => {
     if (mimeType.includes("webm")) {
       return "webm";
@@ -112,6 +126,76 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
     return "webm";
   };
 
+  const ensureFfmpegLoaded = async () => {
+    if (ffmpegRef.current && ffmpegIsLoadedRef.current) {
+      return ffmpegRef.current;
+    }
+
+    if (ffmpegLoadPromiseRef.current) {
+      await ffmpegLoadPromiseRef.current;
+      return ffmpegRef.current as FFmpeg;
+    }
+
+    const ffmpeg = ffmpegRef.current ?? new FFmpeg();
+    ffmpegRef.current = ffmpeg;
+
+    ffmpegLoadPromiseRef.current = (async () => {
+      const basePath = import.meta.env.BASE_URL || "/";
+      const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+      const coreURL = new URL(`${normalizedBase}node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js`, window.location.origin).toString();
+      const wasmURL = new URL(`${normalizedBase}node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm`, window.location.origin).toString();
+
+      await ffmpeg.load({
+        coreURL,
+        wasmURL,
+      });
+      ffmpegIsLoadedRef.current = true;
+    })();
+
+    await ffmpegLoadPromiseRef.current;
+    return ffmpeg;
+  };
+
+  const transcodeToSelectedAudioFormat = async (inputFile: File) => {
+    const ffmpeg = await ensureFfmpegLoaded();
+    const sourceExt = extensionFromMimeType(inputFile.type) || "webm";
+    const inputName = `input-${Date.now()}.${sourceExt}`;
+    const outputName = `output-${Date.now()}.${selectedAudioFormat.extension}`;
+    const codecArgs = ffmpegArgsByFormat[selectedAudioFormat.extension] || ffmpegArgsByFormat.mp3;
+
+    await ffmpeg.writeFile(inputName, await fetchFile(inputFile));
+
+    try {
+      await ffmpeg.exec([
+        "-i",
+        inputName,
+        ...codecArgs,
+        outputName,
+      ]);
+
+      const outputData = await ffmpeg.readFile(outputName) as Uint8Array;
+      const outputBytes = new Uint8Array(outputData);
+      const outputBlob = new Blob([outputBytes], { type: selectedAudioFormat.mimeType });
+
+      return new File(
+        [outputBlob],
+        `voice-recording-${formatRecordingFilenameDate()}.${selectedAudioFormat.extension}`,
+        { type: selectedAudioFormat.mimeType },
+      );
+    } finally {
+      try {
+        await ffmpeg.deleteFile(inputName);
+      } catch {
+        // noop
+      }
+      try {
+        await ffmpeg.deleteFile(outputName);
+      } catch {
+        // noop
+      }
+    }
+  };
+
   const formatRecordingFilenameDate = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -120,7 +204,8 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const seconds = String(now.getSeconds()).padStart(2, "0");
-    return `${year}-${month}-${day}-${hours}:${minutes}:${seconds}`;
+    // Keep filename filesystem-safe across OSes (Windows disallows ':').
+    return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
   };
 
   const formatRecordingTime = (durationMs: number) => {
@@ -860,18 +945,19 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
       return;
     }
 
-    const fullSelection = previewDurationSec <= 0
-      || (trimStartSec <= 0.01 && trimEndSec >= previewDurationSec - 0.01);
-
-    if (fullSelection) {
-      onRecordingReady(recordedFile);
-      toast.success("Recording saved to queue");
-      return;
-    }
-
     setIsSavingPreview(true);
 
     try {
+      const fullSelection = previewDurationSec <= 0
+        || (trimStartSec <= 0.01 && trimEndSec >= previewDurationSec - 0.01);
+
+      if (fullSelection) {
+        const transcodedFull = await transcodeToSelectedAudioFormat(recordedFile);
+        onRecordingReady(transcodedFull);
+        toast.success("Recording saved to queue");
+        return;
+      }
+
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) {
         throw new Error("Audio editing is unavailable in this browser.");
@@ -893,13 +979,15 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
       }
 
       const wavBlob = encodeWav(trimmed);
-      const trimmedFile = new File(
+      const trimmedWavFile = new File(
         [wavBlob],
         `voice-recording-${formatRecordingFilenameDate()}.wav`,
         { type: "audio/wav" },
       );
 
-      onRecordingReady(trimmedFile);
+      const transcodedTrimmed = await transcodeToSelectedAudioFormat(trimmedWavFile);
+
+      onRecordingReady(transcodedTrimmed);
       toast.success("Trimmed recording saved to queue");
       void ctx.close();
     } catch (error) {
