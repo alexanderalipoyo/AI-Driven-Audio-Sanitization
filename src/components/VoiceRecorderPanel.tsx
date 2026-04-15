@@ -487,9 +487,11 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
     animationFrameRef.current = window.requestAnimationFrame(drawWaveform);
   };
 
-  const startWaveformLoop = () => {
+  const startWaveformLoop = (resetHistory = true) => {
     clearWaveformLoop();
-    waveformHistoryRef.current = [];
+    if (resetHistory) {
+      waveformHistoryRef.current = [];
+    }
     animationFrameRef.current = window.requestAnimationFrame(drawWaveform);
   };
 
@@ -735,7 +737,7 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
         sourceNode.connect(analyser);
         audioContextRef.current = audioContext;
         analyserRef.current = analyser;
-        startWaveformLoop();
+        startWaveformLoop(true);
       }
 
       const recorder = new MediaRecorder(
@@ -861,7 +863,7 @@ export function VoiceRecorderPanel({ onRecordingReady, audioFormat = "mp3" }: Vo
       recorder.resume();
       activeSegmentStartMsRef.current = Date.now();
       setIsPaused(false);
-      startWaveformLoop();
+      startWaveformLoop(false);
     }
   };
 
